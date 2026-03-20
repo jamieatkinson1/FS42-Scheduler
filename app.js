@@ -106,6 +106,7 @@ const dragState = {
   dropBlockedReason: "-",
   lastDropCommitted: false,
   commitSnapshot: null,
+  timingSnapshot: null,
 };
 
 let timelineDebugPanel = null;
@@ -1388,6 +1389,36 @@ function initTimelineDebugPanel() {
       <div class="timeline-debug-row"><span>Reverted</span><code data-debug-field="commitReverted">-</code></div>
       <div class="timeline-debug-row"><span>Target detail</span><code data-debug-field="commitTargetDetail">-</code></div>
     </div>
+    <div class="timeline-debug-section">
+      <div class="timeline-debug-section-title">Last timing snapshot</div>
+      <div class="timeline-debug-row"><span>Snapshot status</span><code data-debug-field="timingStatus">-</code></div>
+      <div class="timeline-debug-row"><span>Item</span><code data-debug-field="timingItem">-</code></div>
+      <div class="timeline-debug-row"><span>Item id</span><code data-debug-field="timingItemId">-</code></div>
+      <div class="timeline-debug-row"><span>Original start</span><code data-debug-field="timingOriginalTime">-</code></div>
+      <div class="timeline-debug-row"><span>Original mins</span><code data-debug-field="timingOriginalMinutes">-</code></div>
+      <div class="timeline-debug-row"><span>Hover pre-snap</span><code data-debug-field="hoverPreSnapMinutes">-</code></div>
+      <div class="timeline-debug-row"><span>Hover snapped</span><code data-debug-field="hoverSnappedMinutes">-</code></div>
+      <div class="timeline-debug-row"><span>Hover clamped</span><code data-debug-field="hoverClampedMinutes">-</code></div>
+      <div class="timeline-debug-row"><span>Hover lane</span><code data-debug-field="hoverTargetLane">-</code></div>
+      <div class="timeline-debug-row"><span>Hover channel</span><code data-debug-field="hoverTargetChannelId">-</code></div>
+      <div class="timeline-debug-row"><span>Commit pre-snap</span><code data-debug-field="commitPreSnapMinutesTiming">-</code></div>
+      <div class="timeline-debug-row"><span>Commit snapped</span><code data-debug-field="commitSnappedMinutesTiming">-</code></div>
+      <div class="timeline-debug-row"><span>Commit clamped</span><code data-debug-field="commitClampedMinutesTiming">-</code></div>
+      <div class="timeline-debug-row"><span>Commit lane</span><code data-debug-field="commitTargetLaneTiming">-</code></div>
+      <div class="timeline-debug-row"><span>Commit channel</span><code data-debug-field="commitTargetChannelIdTiming">-</code></div>
+      <div class="timeline-debug-row"><span>Commit category</span><code data-debug-field="commitTargetCategoryTiming">-</code></div>
+      <div class="timeline-debug-row"><span>Commit raw X</span><code data-debug-field="commitRawXTiming">-</code></div>
+      <div class="timeline-debug-row"><span>Commit adjusted X</span><code data-debug-field="commitAdjustedXTiming">-</code></div>
+      <div class="timeline-debug-row"><span>Commit new start</span><code data-debug-field="commitNewStartTiming">-</code></div>
+      <div class="timeline-debug-row"><span>Final saved start</span><code data-debug-field="finalSavedStartTiming">-</code></div>
+      <div class="timeline-debug-row"><span>Final saved time</span><code data-debug-field="finalSavedTimeTiming">-</code></div>
+      <div class="timeline-debug-row"><span>Final rendered left</span><code data-debug-field="finalRenderedLeftTiming">-</code></div>
+      <div class="timeline-debug-row"><span>Hover -> commit</span><code data-debug-field="matchHoverCommit">-</code></div>
+      <div class="timeline-debug-row"><span>Commit -> saved</span><code data-debug-field="matchCommitSaved">-</code></div>
+      <div class="timeline-debug-row"><span>Saved -> recheck</span><code data-debug-field="matchSavedRecheck">-</code></div>
+      <div class="timeline-debug-row"><span>Reverted after commit</span><code data-debug-field="timingReverted">-</code></div>
+      <div class="timeline-debug-row"><span>Post-check start</span><code data-debug-field="timingPostCheckStart">-</code></div>
+    </div>
   `;
 
   document.body.appendChild(panel);
@@ -1509,6 +1540,35 @@ function updateTimelineDebugPanel(snapshot) {
   setTimelineDebugField("commitPostCheckStart", commit?.postCheckStart);
   setTimelineDebugField("commitReverted", commit?.revertedAfterCommit);
   setTimelineDebugField("commitTargetDetail", commit?.targetDetail);
+
+  const timing = snapshot.timingSnapshot || dragState.timingSnapshot;
+  setTimelineDebugField("timingStatus", timing?.status);
+  setTimelineDebugField("timingItem", timing?.itemTitle);
+  setTimelineDebugField("timingItemId", timing?.itemId);
+  setTimelineDebugField("timingOriginalTime", timing?.originalStartTime);
+  setTimelineDebugField("timingOriginalMinutes", timing?.originalStartMinutes);
+  setTimelineDebugField("hoverPreSnapMinutes", timing?.hover?.preSnapMinutes);
+  setTimelineDebugField("hoverSnappedMinutes", timing?.hover?.snappedMinutes);
+  setTimelineDebugField("hoverClampedMinutes", timing?.hover?.clampedMinutes);
+  setTimelineDebugField("hoverTargetLane", timing?.hover?.targetLaneLabel);
+  setTimelineDebugField("hoverTargetChannelId", timing?.hover?.targetChannelId);
+  setTimelineDebugField("commitPreSnapMinutesTiming", timing?.commit?.preSnapMinutes);
+  setTimelineDebugField("commitSnappedMinutesTiming", timing?.commit?.snappedMinutes);
+  setTimelineDebugField("commitClampedMinutesTiming", timing?.commit?.clampedMinutes);
+  setTimelineDebugField("commitTargetLaneTiming", timing?.commit?.targetLaneLabel);
+  setTimelineDebugField("commitTargetChannelIdTiming", timing?.commit?.targetChannelId);
+  setTimelineDebugField("commitTargetCategoryTiming", timing?.commit?.targetLaneCategory);
+  setTimelineDebugField("commitRawXTiming", timing?.commit?.rawX);
+  setTimelineDebugField("commitAdjustedXTiming", timing?.commit?.adjustedX);
+  setTimelineDebugField("commitNewStartTiming", timing?.commit?.newStartTime);
+  setTimelineDebugField("finalSavedStartTiming", timing?.final?.savedStart);
+  setTimelineDebugField("finalSavedTimeTiming", timing?.final?.savedTimeLabel);
+  setTimelineDebugField("finalRenderedLeftTiming", timing?.final?.renderedLeft);
+  setTimelineDebugField("matchHoverCommit", timing?.matches?.hoverToCommit);
+  setTimelineDebugField("matchCommitSaved", timing?.matches?.commitToSaved);
+  setTimelineDebugField("matchSavedRecheck", timing?.matches?.savedToRecheck);
+  setTimelineDebugField("timingReverted", timing?.postRender?.revertedAfterCommit);
+  setTimelineDebugField("timingPostCheckStart", timing?.postRender?.postCheckStart);
 }
 
 function logTimelineEvent(stage, event, lane, extras = {}) {
@@ -1603,6 +1663,23 @@ function handleBlockDragStart(event) {
   const item = state.items.find((entry) => entry.id === event.currentTarget.dataset.itemId);
   dragState.itemId = event.currentTarget.dataset.itemId;
   dragState.commitSnapshot = null;
+  dragState.timingSnapshot = {
+    status: "dragging",
+    hover: null,
+    commit: null,
+    final: null,
+    postRender: null,
+    matches: {
+      hoverToCommit: "-",
+      commitToSaved: "-",
+      savedToRecheck: "-",
+    },
+    itemId: item?.id || dragState.itemId || "-",
+    itemTitle: item?.title || "-",
+    originalStartMinutes: item ? getSafeStartMinutes(item.start) : null,
+    originalStartTime: item?.start || "-",
+    revertedAfterCommit: "no",
+  };
   dragState.draggedItemSnapshot = item
     ? {
         id: item.id,
@@ -1702,6 +1779,33 @@ function handleLaneDragOver(event) {
       Number.isFinite(snappedMinutes) && Number.isFinite(duration)
         ? Math.max(DAY_START, Math.min(DAY_END - duration, snappedMinutes))
         : null;
+    const targetChannelId = event.currentTarget.dataset.channelId || null;
+    const targetLaneCategory = event.currentTarget.dataset.category || null;
+    dragState.timingSnapshot = dragState.timingSnapshot || {};
+    dragState.timingSnapshot.status = "hovering";
+    dragState.timingSnapshot.hover = {
+      itemId: item?.id || dragState.itemId || "-",
+      itemTitle: item?.title || dragState.draggedItemSnapshot?.title || "-",
+      originalStartMinutes: dragState.draggedItemSnapshot ? getSafeStartMinutes(dragState.draggedItemSnapshot.start) : item ? getSafeStartMinutes(item.start) : null,
+      originalStartTime: dragState.draggedItemSnapshot?.start || item?.start || "-",
+      visibleLaneX: Number.isFinite(event.clientX) ? event.clientX - event.currentTarget.getBoundingClientRect().left : null,
+      timelineContentX: timelineX,
+      adjustedX,
+      preSnapMinutes,
+      snappedMinutes,
+      clampedMinutes,
+      targetChannelId,
+      targetLaneCategory,
+      targetLaneLabel: `${getChannelName(targetChannelId)} / ${targetLaneCategory}`,
+    };
+    console.log("[timeline-dnd] hover snapshot", {
+      itemId: dragState.timingSnapshot.hover.itemId,
+      originalStart: dragState.timingSnapshot.hover.originalStartTime,
+      hoverSnapped: snappedMinutes,
+      hoverClamped: clampedMinutes,
+      targetChannelId,
+      targetLaneCategory,
+    });
     const snapshot = buildTimelineDebugSnapshot("dragover", event, event.currentTarget, item, {
       timelineContentX: timelineX,
       adjustedX,
@@ -1781,6 +1885,36 @@ function commitTimelineDrop(event, lane, source) {
   const clampedMinutes = Number.isFinite(snappedMinutes)
     ? clampPlanningMinutes(Math.max(DAY_START, Math.min(maxStart, snappedMinutes)))
     : null;
+  const plannedStartTime = minutesToTime(clampPlanningMinutes(Number.isFinite(clampedMinutes) ? clampedMinutes : DAY_START));
+
+  dragState.timingSnapshot = dragState.timingSnapshot || {};
+  dragState.timingSnapshot.status = "committing";
+  dragState.timingSnapshot.commit = {
+    itemId: sourceItem?.id || item?.id || "-",
+    itemTitle: sourceItem?.title || item?.title || "-",
+    rawX: timelineX,
+    adjustedX,
+    preSnapMinutes,
+    snappedMinutes,
+    clampedMinutes,
+    targetChannelId,
+    targetLaneCategory,
+    targetLaneLabel,
+    sameLane,
+    newStartTime: plannedStartTime,
+    newChannelId: targetChannelId,
+    newLaneCategory: targetLaneCategory,
+  };
+  console.log("[timeline-dnd] commit snapshot", {
+    itemId: dragState.timingSnapshot.commit.itemId,
+    originalStart: dragState.timingSnapshot.originalStartTime,
+    commitSnapped: snappedMinutes,
+    commitClamped: clampedMinutes,
+    plannedStart: plannedStartTime,
+    targetChannelId,
+    targetLaneCategory,
+    sameLane,
+  });
 
   dragState.commitSnapshot = {
     source,
@@ -1921,6 +2055,9 @@ function commitTimelineDrop(event, lane, source) {
   item.duration = duration;
   item.start = minutesToTime(clampPlanningMinutes(magneticStart));
   item.slot = getSlotFromMinutes(timeToMinutes(item.start));
+  dragState.timingSnapshot.commit.newStartTime = item.start;
+  dragState.timingSnapshot.commit.newChannelId = item.channelId;
+  dragState.timingSnapshot.commit.newLaneCategory = item.category;
   dragState.commitSnapshot.stateUpdated = true;
   dragState.commitSnapshot.newStartMinutes = timeToMinutes(item.start);
   dragState.commitSnapshot.newStartTime = item.start;
@@ -2014,6 +2151,53 @@ function commitTimelineDrop(event, lane, source) {
       postCheckItem.channelId !== item.channelId ||
       postCheckItem.category !== item.category,
   );
+  const finalSavedStart = postCheckItem?.start || item.start;
+  const finalSavedMinutes = postCheckItem ? getSafeStartMinutes(postCheckItem.start) : getSafeStartMinutes(item.start);
+  const finalRenderedLeft = postCheckItem ? timelineMinutesToX(getSafeStartMinutes(postCheckItem.start)) : renderedLeft;
+  const finalSavedMatchesCommit = Boolean(finalSavedStart === dragState.timingSnapshot.commit.newStartTime);
+  const savedMatchesRecheck = Boolean(postCheckItem && postCheckItem.start === finalSavedStart);
+  const hoverSnapshot = dragState.timingSnapshot.hover || null;
+  const commitSnapshot = dragState.timingSnapshot.commit || null;
+  const hoverMatchesCommit = Boolean(
+    hoverSnapshot &&
+      commitSnapshot &&
+      hoverSnapshot.snappedMinutes === commitSnapshot.snappedMinutes &&
+      hoverSnapshot.clampedMinutes === commitSnapshot.clampedMinutes,
+  );
+  dragState.timingSnapshot.final = {
+    itemId: item.id,
+    savedStart: finalSavedStart,
+    savedMinutes: finalSavedMinutes,
+    savedTimeLabel: postCheckItem?.start || item.start,
+    savedChannelId: postCheckItem?.channelId || item.channelId,
+    savedLaneCategory: postCheckItem?.category || item.category,
+    renderedLeft: finalRenderedLeft,
+    visibleTimeLabel: postCheckItem?.start || item.start,
+  };
+  dragState.timingSnapshot.matches = {
+    hoverToCommit: hoverMatchesCommit ? "yes" : "no",
+    commitToSaved: finalSavedMatchesCommit ? "yes" : "no",
+    savedToRecheck: savedMatchesRecheck ? "yes" : "no",
+  };
+  dragState.timingSnapshot.postRender = {
+    itemId: item.id,
+    expectedCommittedStart: dragState.timingSnapshot.commit.newStartTime,
+    postCheckStart: postCheckItem?.start || "-",
+    revertedAfterCommit: revertedAfterCommit ? "yes" : "no",
+  };
+  dragState.timingSnapshot.revertedAfterCommit = revertedAfterCommit ? "yes" : "no";
+  dragState.timingSnapshot.status = revertedAfterCommit ? "reverted" : "saved";
+  console.log("[timeline-dnd] final saved snapshot", {
+    itemId: item.id,
+    originalStart: dragState.timingSnapshot.originalStartTime,
+    hoverSnapped: hoverSnapshot?.snappedMinutes,
+    hoverClamped: hoverSnapshot?.clampedMinutes,
+    commitSnapped: commitSnapshot?.snappedMinutes,
+    commitClamped: commitSnapshot?.clampedMinutes,
+    finalSavedStart,
+    finalSavedMinutes,
+    revertedAfterCommit: revertedAfterCommit ? "yes" : "no",
+  });
   dragState.commitSnapshot.revertedAfterCommit = revertedAfterCommit;
   dragState.commitSnapshot.stateUpdated = Boolean(postCheckItem && postCheckItem.start === item.start);
   dragState.commitSnapshot.renderReflected = Boolean(postCheckItem && postCheckItem.start === item.start);
@@ -2033,12 +2217,15 @@ function commitTimelineDrop(event, lane, source) {
       postCheckCategory: postCheckItem?.category || "-",
     });
   }
-  console.log("[timeline-dnd] post-commit check", {
+  console.log("[timeline-dnd] post-render recheck", {
     itemId: item.id,
-    savedStart: postCheckItem?.start || "-",
-    savedStartMinutes: postCheckItem ? getSafeStartMinutes(postCheckItem.start) : null,
-    renderedLeft,
-    renderVisibleTimeLabel,
+    expectedCommittedStart: dragState.timingSnapshot.commit.newStartTime,
+    currentStart: postCheckItem?.start || "-",
+    currentStartMinutes: postCheckItem ? getSafeStartMinutes(postCheckItem.start) : null,
+    currentChannelId: postCheckItem?.channelId || "-",
+    currentLaneCategory: postCheckItem?.category || "-",
+    renderedLeft: finalRenderedLeft,
+    visibleTimeLabel: renderVisibleTimeLabel,
     revertedAfterCommit,
   });
 
