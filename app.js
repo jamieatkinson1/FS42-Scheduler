@@ -98,6 +98,13 @@ const dragState = {
   lastClientX: null,
   lastTimelineX: null,
   draggedItemSnapshot: null,
+  lastEventType: null,
+  lastTargetLabel: null,
+  lastCurrentTargetLabel: null,
+  lastClosestLaneLabel: null,
+  dropAllowed: "unknown",
+  dropBlockedReason: "-",
+  lastDropCommitted: false,
 };
 
 let timelineDebugPanel = null;
@@ -239,6 +246,14 @@ function bindEvents() {
   });
   elements.exportCsv.addEventListener("click", () => exportSchedule("csv"));
   elements.exportJson.addEventListener("click", () => exportSchedule("json"));
+
+  if (elements.timelineShell) {
+    elements.timelineShell.addEventListener("dragenter", handleTimelineDragEnterCapture, true);
+    elements.timelineShell.addEventListener("dragover", handleTimelineDragOverCapture, true);
+    elements.timelineShell.addEventListener("drop", handleTimelineDropCapture, true);
+    elements.timelineShell.addEventListener("dragleave", handleTimelineDragLeaveCapture, true);
+  }
+  document.addEventListener("dragend", handleTimelineDragEndCapture, true);
 
   window.addEventListener("mousemove", handleResizeMove);
   window.addEventListener("mouseup", stopResize);
@@ -1301,11 +1316,17 @@ function initTimelineDebugPanel() {
       <div class="timeline-debug-row"><span>Drop status</span><code data-debug-field="dropStatus">-</code></div>
       <div class="timeline-debug-row"><span>Drop fired</span><code data-debug-field="dropFired">-</code></div>
       <div class="timeline-debug-row"><span>Drop committed</span><code data-debug-field="dropCommitted">-</code></div>
+      <div class="timeline-debug-row"><span>Drop allowed</span><code data-debug-field="dropAllowed">-</code></div>
+      <div class="timeline-debug-row"><span>Blocked reason</span><code data-debug-field="dropBlockedReason">-</code></div>
       <div class="timeline-debug-row"><span>Stage</span><code data-debug-field="stage">idle</code></div>
+      <div class="timeline-debug-row"><span>Last event</span><code data-debug-field="lastEventType">-</code></div>
       <div class="timeline-debug-row"><span>Item</span><code data-debug-field="item">-</code></div>
       <div class="timeline-debug-row"><span>Item id</span><code data-debug-field="itemId">-</code></div>
       <div class="timeline-debug-row"><span>Channel / lane</span><code data-debug-field="lane">-</code></div>
       <div class="timeline-debug-row"><span>Event</span><code data-debug-field="event">-</code></div>
+      <div class="timeline-debug-row"><span>Target</span><code data-debug-field="target">-</code></div>
+      <div class="timeline-debug-row"><span>Current target</span><code data-debug-field="currentTarget">-</code></div>
+      <div class="timeline-debug-row"><span>Closest lane</span><code data-debug-field="closestLane">-</code></div>
       <div class="timeline-debug-row"><span>Pointer offset</span><code data-debug-field="pointerOffset">-</code></div>
       <div class="timeline-debug-row"><span>Original mins</span><code data-debug-field="originalMinutes">-</code></div>
       <div class="timeline-debug-row"><span>Original time</span><code data-debug-field="originalTime">-</code></div>
@@ -1370,6 +1391,34 @@ function logTimelineDebug(stage, snapshot) {
   console.log(`[timeline-dnd] ${stage}`, snapshot);
 }
 
+function describeTimelineNode(node) {
+  if (!node) return "-";
+  const tagName = node.tagName || node.nodeName || "node";
+  const className =
+    typeof node.className === "string"
+      ? node.className.trim().replace(/\s+/g, ".")
+      : node.classList
+        ? Array.from(node.classList).join(".")
+        : "";
+  const datasetParts = [];
+  if (node.dataset) {
+    if (node.dataset.channelId) datasetParts.push(`channel=${node.dataset.channelId}`);
+    if (node.dataset.category) datasetParts.push(`category=${node.dataset.category}`);
+    if (node.dataset.itemId) datasetParts.push(`item=${node.dataset.itemId}`);
+  }
+  return [tagName, className ? `.${className}` : "", datasetParts.length > 0 ? ` [${datasetParts.join(" ")}]` : ""].join("");
+}
+
+function resolveTimelineLaneFromEvent(event) {
+  const path = typeof event?.composedPath === "function" ? event.composedPath() : [];
+  for (const node of path) {
+    if (node?.classList?.contains?.("day-lane")) return node;
+  }
+  if (event?.target?.closest) return event.target.closest(".day-lane");
+  if (event?.currentTarget?.classList?.contains?.("day-lane")) return event.currentTarget;
+  return null;
+}
+
 function updateTimelineDebugPanel(snapshot) {
   if (!DEBUG_TIMELINE_DND || !timelineDebugPanel || !snapshot) return;
 
@@ -1377,10 +1426,16 @@ function updateTimelineDebugPanel(snapshot) {
   setTimelineDebugField("dropStatus", snapshot.dropStatus);
   setTimelineDebugField("dropFired", snapshot.dropFired);
   setTimelineDebugField("dropCommitted", snapshot.dropCommitted);
+  setTimelineDebugField("dropAllowed", snapshot.dropAllowed);
+  setTimelineDebugField("dropBlockedReason", snapshot.dropBlockedReason);
+  setTimelineDebugField("lastEventType", snapshot.lastEventType);
   setTimelineDebugField("item", snapshot.itemLabel);
   setTimelineDebugField("itemId", snapshot.itemId);
   setTimelineDebugField("lane", snapshot.laneLabel);
   setTimelineDebugField("event", snapshot.eventLabel);
+  setTimelineDebugField("target", snapshot.targetLabel);
+  setTimelineDebugField("currentTarget", snapshot.currentTargetLabel);
+  setTimelineDebugField("closestLane", snapshot.closestLaneLabel);
   setTimelineDebugField("pointerOffset", snapshot.pointerOffsetX);
   setTimelineDebugField("originalMinutes", snapshot.originalMinutes);
   setTimelineDebugField("originalTime", snapshot.originalTime);
@@ -1403,9 +1458,28 @@ function updateTimelineDebugPanel(snapshot) {
   setTimelineDebugField("renderNote", snapshot.renderNote);
 }
 
+function logTimelineEvent(stage, event, lane, extras = {}) {
+  if (!DEBUG_TIMELINE_DND) return;
+  const resolvedLane = resolveTimelineLaneFromEvent(event) || lane || null;
+  const item = state.items.find((entry) => entry.id === dragState.itemId) || dragState.draggedItemSnapshot || null;
+  const snapshot = buildTimelineDebugSnapshot(stage, event, resolvedLane, item, {
+    ...extras,
+    lastEventType: event?.type || stage,
+    targetLabel: describeTimelineNode(event?.target),
+    currentTargetLabel: describeTimelineNode(event?.currentTarget),
+    closestLaneLabel: describeTimelineNode(resolvedLane),
+  });
+  updateTimelineDebugPanel(snapshot);
+  logTimelineDebug(stage, snapshot);
+  return snapshot;
+}
+
 function buildTimelineDebugSnapshot(stage, event, lane, item, extras = {}) {
   const geometry = getTimelinePointerGeometry(event, lane);
   const sourceItem = dragState.draggedItemSnapshot || item || null;
+  const targetLabel = extras.targetLabel || describeTimelineNode(event?.target);
+  const currentTargetLabel = extras.currentTargetLabel || describeTimelineNode(event?.currentTarget);
+  const closestLaneLabel = extras.closestLaneLabel || describeTimelineNode(resolveTimelineLaneFromEvent(event) || lane);
   const visibleLaneX = Number.isFinite(extras.visibleLaneX) ? extras.visibleLaneX : geometry.visibleLaneX;
   const timelineContentX =
     Number.isFinite(extras.timelineContentX) ? extras.timelineContentX : geometry.timelineContentX;
@@ -1429,9 +1503,12 @@ function buildTimelineDebugSnapshot(stage, event, lane, item, extras = {}) {
 
   return {
     stage,
+    lastEventType: extras.lastEventType || (event?.type || "-"),
     dropStatus: extras.dropStatus || "-",
     dropFired: extras.dropFired || "-",
     dropCommitted: extras.dropCommitted || "-",
+    dropAllowed: extras.dropAllowed || dragState.dropAllowed,
+    dropBlockedReason: extras.dropBlockedReason || dragState.dropBlockedReason,
     itemLabel: sourceItem ? `${sourceItem.title} (${sourceItem.id})` : "-",
     itemId: sourceItem ? sourceItem.id : "-",
     laneLabel: sourceItem ? `${getChannelName(sourceItem.channelId)} / ${sourceItem.category}` : "-",
@@ -1447,6 +1524,9 @@ function buildTimelineDebugSnapshot(stage, event, lane, item, extras = {}) {
     scrollLeft: geometry.shellScrollLeft,
     shellClientWidth: geometry.shellClientWidth,
     shellScrollWidth: geometry.shellScrollWidth,
+    targetLabel,
+    currentTargetLabel,
+    closestLaneLabel,
     visibleLaneX,
     timelineContentX,
     adjustedX,
@@ -1491,14 +1571,26 @@ function handleBlockDragStart(event) {
   event.currentTarget.classList.add("dragging");
 
   if (DEBUG_TIMELINE_DND) {
+    dragState.lastEventType = event.type;
+    dragState.lastTargetLabel = describeTimelineNode(event.target);
+    dragState.lastCurrentTargetLabel = describeTimelineNode(event.currentTarget);
+    dragState.lastClosestLaneLabel = "-";
+    dragState.dropAllowed = "unknown";
+    dragState.dropBlockedReason = "-";
+    dragState.lastDropCommitted = false;
     const snapshot = buildTimelineDebugSnapshot("dragstart", event, null, item, {
       xSource: "dragstart",
       dropStatus: "DRAG ACTIVE",
       dropFired: "no",
       dropCommitted: "no",
+      dropAllowed: "unknown",
+      dropBlockedReason: "-",
       originalMinutes: dragState.draggedItemSnapshot ? getSafeStartMinutes(dragState.draggedItemSnapshot.start) : null,
       originalTime: dragState.draggedItemSnapshot ? dragState.draggedItemSnapshot.start : "-",
       eventLabel: `clientX=${formatTimelineDebugValue(event.clientX)} clientY=${formatTimelineDebugValue(event.clientY)}`,
+      targetLabel: describeTimelineNode(event.target),
+      currentTargetLabel: describeTimelineNode(event.currentTarget),
+      closestLaneLabel: "-",
       renderNote: "block picked up",
     });
     updateTimelineDebugPanel(snapshot);
@@ -1509,17 +1601,39 @@ function handleBlockDragStart(event) {
 function handleBlockDragEnd(event) {
   event.currentTarget.classList.remove("dragging");
   clearLaneHighlights();
+  dragState.lastEventType = event.type;
+  dragState.lastTargetLabel = describeTimelineNode(event.target);
+  dragState.lastCurrentTargetLabel = describeTimelineNode(event.currentTarget);
+  dragState.lastClosestLaneLabel = "-";
   dragState.itemId = null;
   dragState.pointerOffsetX = 0;
   dragState.lastClientX = null;
   dragState.lastTimelineX = null;
   dragState.draggedItemSnapshot = null;
+  dragState.dropAllowed = "unknown";
+  dragState.dropBlockedReason = "-";
+  if (DEBUG_TIMELINE_DND) {
+    logTimelineEvent("dragend", event, null, {
+      dropStatus: dragState.lastDropCommitted ? "DRAG END AFTER DROP" : "DROP NEVER FIRED",
+      dropFired: dragState.lastDropCommitted ? "yes" : "no",
+      dropCommitted: dragState.lastDropCommitted ? "yes" : "no",
+      renderNote: "drag state cleared",
+    });
+  }
+  dragState.lastDropCommitted = false;
 }
 
 function handleLaneDragOver(event) {
   event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
   dragState.lastClientX = event.clientX;
   dragState.lastTimelineX = getTimelineContentXFromPointer(event, event.currentTarget);
+  dragState.lastEventType = event.type;
+  dragState.lastTargetLabel = describeTimelineNode(event.target);
+  dragState.lastCurrentTargetLabel = describeTimelineNode(event.currentTarget);
+  dragState.lastClosestLaneLabel = describeTimelineNode(resolveTimelineLaneFromEvent(event) || event.currentTarget);
+  dragState.dropAllowed = "yes";
+  dragState.dropBlockedReason = "-";
   clearLaneHighlights();
   event.currentTarget.classList.add("drop-target");
 
@@ -1540,11 +1654,16 @@ function handleLaneDragOver(event) {
       preSnapMinutes,
       snappedMinutes,
       clampedMinutes,
+      dropAllowed: "yes",
+      dropBlockedReason: "-",
       dropStatus: "DRAG OVER",
       dropFired: "no",
       dropCommitted: "no",
       xSource: "dragover:lastTimelineX",
       fallbackX: null,
+      targetLabel: describeTimelineNode(event.target),
+      currentTargetLabel: describeTimelineNode(event.currentTarget),
+      closestLaneLabel: describeTimelineNode(resolveTimelineLaneFromEvent(event) || event.currentTarget),
       renderNote: "live hover preview",
     });
     updateTimelineDebugPanel(snapshot);
@@ -1553,37 +1672,92 @@ function handleLaneDragOver(event) {
 }
 
 function handleLaneDragLeave(event) {
+  dragState.lastEventType = event.type;
+  dragState.lastTargetLabel = describeTimelineNode(event.target);
+  dragState.lastCurrentTargetLabel = describeTimelineNode(event.currentTarget);
+  dragState.lastClosestLaneLabel = describeTimelineNode(resolveTimelineLaneFromEvent(event) || event.currentTarget);
   event.currentTarget.classList.remove("drop-target");
+  if (DEBUG_TIMELINE_DND) {
+    logTimelineEvent("dragleave", event, event.currentTarget, {
+      dropStatus: "DRAG LEAVE",
+      dropFired: "no",
+      dropCommitted: "no",
+      dropAllowed: dragState.dropAllowed,
+      dropBlockedReason: dragState.dropBlockedReason,
+      renderNote: "lane left",
+    });
+  }
 }
 
 function handleLaneDrop(event) {
-  event.preventDefault();
+  const lane = resolveTimelineLaneFromEvent(event) || event.currentTarget;
+  commitTimelineDrop(event, lane, "lane");
+}
+
+function commitTimelineDrop(event, lane, source) {
+  if (event?.__fs42TimelineDropHandled) {
+    return { committed: false, dropSnapshot: null, renderSnapshot: null, duplicate: true };
+  }
+  if (event) event.__fs42TimelineDropHandled = true;
   const item = state.items.find((entry) => entry.id === dragState.itemId);
-  const lane = event.currentTarget;
   const fallbackTimelineX = getTimelineContentXFromPointer(event, lane);
-  if (!item) {
+  const timelineX = Number.isFinite(dragState.lastTimelineX) ? dragState.lastTimelineX : fallbackTimelineX;
+  const dropFired = Boolean(event?.type === "drop");
+
+  if (!lane) {
+    dragState.dropAllowed = "no";
+    dragState.dropBlockedReason = "no lane target";
     if (DEBUG_TIMELINE_DND) {
-      const blockedSnapshot = buildTimelineDebugSnapshot("drop", event, lane, null, {
-        timelineContentX: dragState.lastTimelineX ?? fallbackTimelineX,
+      const blockedSnapshot = buildTimelineDebugSnapshot("drop", event, lane, item, {
+        timelineContentX: timelineX,
         adjustedX:
-          Number.isFinite(dragState.lastTimelineX ?? fallbackTimelineX)
-            ? (dragState.lastTimelineX ?? fallbackTimelineX) - dragState.pointerOffsetX
-            : null,
+          Number.isFinite(timelineX) ? timelineX - dragState.pointerOffsetX : null,
         fallbackX: fallbackTimelineX,
         xSource: Number.isFinite(dragState.lastTimelineX) ? "lastTimelineX" : "drop-event-fallback",
-        dropStatus: "DROP BLOCKED",
-        dropFired: "yes",
+        dropStatus: "DROP FIRED BUT HAD NO VALID TARGET",
+        dropFired: dropFired ? "yes" : "no",
         dropCommitted: "no",
-        renderNote: "missing dragged item",
+        dropAllowed: "no",
+        dropBlockedReason: "no lane target",
+        renderNote: `source=${source}`,
       });
       updateTimelineDebugPanel(blockedSnapshot);
       logTimelineDebug("drop", blockedSnapshot);
     }
-    return;
+    return { committed: false, dropSnapshot: null, renderSnapshot: null };
+  }
+
+  if (!event?.defaultPrevented) {
+    event.preventDefault();
+  }
+  if (event?.dataTransfer) {
+    event.dataTransfer.dropEffect = "move";
+  }
+
+  if (!item) {
+    dragState.dropAllowed = "yes";
+    dragState.dropBlockedReason = "drag state empty";
+    if (DEBUG_TIMELINE_DND) {
+      const blockedSnapshot = buildTimelineDebugSnapshot("drop", event, lane, null, {
+        timelineContentX: timelineX,
+        adjustedX:
+          Number.isFinite(timelineX) ? timelineX - dragState.pointerOffsetX : null,
+        fallbackX: fallbackTimelineX,
+        xSource: Number.isFinite(dragState.lastTimelineX) ? "lastTimelineX" : "drop-event-fallback",
+        dropStatus: "DROP FIRED BUT DRAG STATE WAS EMPTY",
+        dropFired: dropFired ? "yes" : "no",
+        dropCommitted: "no",
+        dropAllowed: "yes",
+        dropBlockedReason: "drag state empty",
+        renderNote: `source=${source}`,
+      });
+      updateTimelineDebugPanel(blockedSnapshot);
+      logTimelineDebug("drop", blockedSnapshot);
+    }
+    return { committed: false, dropSnapshot: null, renderSnapshot: null };
   }
 
   const duration = getSafeDuration(item.duration, item.itemType);
-  const timelineX = Number.isFinite(dragState.lastTimelineX) ? dragState.lastTimelineX : fallbackTimelineX;
   const relativeX = timelineX - dragState.pointerOffsetX;
   const preSnapMinutes = timelineXToMinutes(relativeX);
   const snappedStart = snapStartMinutes(item, preSnapMinutes);
@@ -1604,51 +1778,153 @@ function handleLaneDrop(event) {
   item.start = minutesToTime(clampPlanningMinutes(magneticStart));
   item.slot = getSlotFromMinutes(timeToMinutes(item.start));
 
-  if (DEBUG_TIMELINE_DND) {
-    const snapshot = buildTimelineDebugSnapshot("drop", event, lane, item, {
-      timelineContentX: timelineX,
-      adjustedX: relativeX,
-      fallbackX: fallbackTimelineX,
-      xSource: Number.isFinite(dragState.lastTimelineX) ? "lastTimelineX" : "drop-event-fallback",
-      preSnapMinutes,
-      snappedMinutes,
-      clampedMinutes,
-      finalMinutes: getSafeStartMinutes(item.start),
-      finalTime: item.start,
-      dropStatus: "DROP COMMITTED",
-      dropFired: "yes",
-      dropCommitted: "yes",
-      itemId: item.id,
-      renderNote: "item updated before render",
-    });
-    updateTimelineDebugPanel(snapshot);
-    logTimelineDebug("drop", snapshot);
+  const dropSnapshot = DEBUG_TIMELINE_DND
+    ? buildTimelineDebugSnapshot("drop", event, lane, item, {
+        timelineContentX: timelineX,
+        adjustedX: relativeX,
+        fallbackX: fallbackTimelineX,
+        xSource: Number.isFinite(dragState.lastTimelineX) ? "lastTimelineX" : "drop-event-fallback",
+        preSnapMinutes,
+        snappedMinutes: snappedStart,
+        clampedMinutes,
+        finalMinutes: getSafeStartMinutes(item.start),
+        finalTime: item.start,
+        dropStatus: "DROP FIRED AND COMMITTED",
+        dropFired: dropFired ? "yes" : "no",
+        dropCommitted: "yes",
+        dropAllowed: "yes",
+        dropBlockedReason: "-",
+        itemId: item.id,
+        renderNote: `source=${source}`,
+      })
+    : null;
+
+  if (DEBUG_TIMELINE_DND && dropSnapshot) {
+    updateTimelineDebugPanel(dropSnapshot);
+    logTimelineDebug("drop", dropSnapshot);
   }
 
   clearLaneHighlights();
   persistAndRender();
 
-  if (DEBUG_TIMELINE_DND) {
-    const renderedLeft = timelineMinutesToX(getSafeStartMinutes(item.start));
-      const renderSnapshot = buildTimelineDebugSnapshot("render", event, lane, item, {
-      timelineContentX: timelineX,
-      adjustedX: relativeX,
-      fallbackX: fallbackTimelineX,
-      xSource: Number.isFinite(dragState.lastTimelineX) ? "lastTimelineX" : "drop-event-fallback",
-      preSnapMinutes,
-      snappedMinutes,
-      clampedMinutes,
-      finalMinutes: getSafeStartMinutes(item.start),
-      finalTime: item.start,
-      dropStatus: "DROP COMMITTED",
-      dropFired: "yes",
-      dropCommitted: "yes",
-      itemId: item.id,
-      renderedLeft,
-      renderNote: `saved start rendered at ${renderedLeft}px`,
-    });
+  const renderSnapshot = DEBUG_TIMELINE_DND
+    ? buildTimelineDebugSnapshot("render", event, lane, item, {
+        timelineContentX: timelineX,
+        adjustedX: relativeX,
+        fallbackX: fallbackTimelineX,
+        xSource: Number.isFinite(dragState.lastTimelineX) ? "lastTimelineX" : "drop-event-fallback",
+        preSnapMinutes,
+        snappedMinutes: snappedStart,
+        clampedMinutes,
+        finalMinutes: getSafeStartMinutes(item.start),
+        finalTime: item.start,
+        dropStatus: "DROP FIRED AND COMMITTED",
+        dropFired: dropFired ? "yes" : "no",
+        dropCommitted: "yes",
+        dropAllowed: "yes",
+        dropBlockedReason: "-",
+        itemId: item.id,
+        renderedLeft: timelineMinutesToX(getSafeStartMinutes(item.start)),
+        renderNote: `saved start rendered at ${timelineMinutesToX(getSafeStartMinutes(item.start))}px`,
+      })
+    : null;
+
+  if (DEBUG_TIMELINE_DND && renderSnapshot) {
     updateTimelineDebugPanel(renderSnapshot);
     logTimelineDebug("render", renderSnapshot);
+  }
+
+  dragState.dropAllowed = "yes";
+  dragState.dropBlockedReason = "-";
+  dragState.lastDropCommitted = true;
+  return { committed: true, dropSnapshot, renderSnapshot };
+}
+
+function handleTimelineDragEnterCapture(event) {
+  dragState.lastEventType = event.type;
+  dragState.lastTargetLabel = describeTimelineNode(event.target);
+  dragState.lastCurrentTargetLabel = describeTimelineNode(event.currentTarget);
+  dragState.lastClosestLaneLabel = describeTimelineNode(resolveTimelineLaneFromEvent(event));
+  if (DEBUG_TIMELINE_DND) {
+    logTimelineEvent("dragenter", event, resolveTimelineLaneFromEvent(event), {
+      dropStatus: "DRAG ENTER",
+      dropFired: "no",
+      dropCommitted: "no",
+      renderNote: "shell capture",
+    });
+  }
+}
+
+function handleTimelineDragOverCapture(event) {
+  const lane = resolveTimelineLaneFromEvent(event);
+  if (!lane) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  dragState.dropAllowed = "yes";
+  dragState.dropBlockedReason = "-";
+  if (DEBUG_TIMELINE_DND) {
+    logTimelineEvent("dragover", event, lane, {
+      dropStatus: "DRAG OVER",
+      dropFired: "no",
+      dropCommitted: "no",
+      dropAllowed: "yes",
+      dropBlockedReason: "-",
+      renderNote: "shell capture",
+    });
+  }
+}
+
+function handleTimelineDropCapture(event) {
+  const lane = resolveTimelineLaneFromEvent(event);
+  dragState.lastEventType = event.type;
+  dragState.lastTargetLabel = describeTimelineNode(event.target);
+  dragState.lastCurrentTargetLabel = describeTimelineNode(event.currentTarget);
+  dragState.lastClosestLaneLabel = describeTimelineNode(lane);
+  if (!lane) {
+    dragState.dropAllowed = "no";
+    dragState.dropBlockedReason = "no lane target";
+    if (DEBUG_TIMELINE_DND) {
+      logTimelineEvent("drop", event, null, {
+        dropStatus: "DROP FIRED BUT HAD NO VALID TARGET",
+        dropFired: "yes",
+        dropCommitted: "no",
+        dropAllowed: "no",
+        dropBlockedReason: "no lane target",
+        renderNote: "capture saw drop without lane",
+      });
+    }
+    return;
+  }
+  commitTimelineDrop(event, lane, "shell-capture");
+}
+
+function handleTimelineDragLeaveCapture(event) {
+  if (!DEBUG_TIMELINE_DND) return;
+  logTimelineEvent("dragleave", event, resolveTimelineLaneFromEvent(event), {
+    dropStatus: "DRAG LEAVE",
+    dropFired: "no",
+    dropCommitted: "no",
+    renderNote: "shell capture",
+  });
+}
+
+function handleTimelineDragEndCapture(event) {
+  dragState.lastEventType = event.type;
+  dragState.lastTargetLabel = describeTimelineNode(event.target);
+  dragState.lastCurrentTargetLabel = describeTimelineNode(event.currentTarget);
+  dragState.lastClosestLaneLabel = describeTimelineNode(resolveTimelineLaneFromEvent(event));
+  if (DEBUG_TIMELINE_DND) {
+    const snapshot = logTimelineEvent("dragend", event, resolveTimelineLaneFromEvent(event), {
+      dropStatus: dragState.lastDropCommitted ? "DRAG END AFTER DROP" : "DROP NEVER FIRED",
+      dropFired: dragState.lastDropCommitted ? "yes" : "no",
+      dropCommitted: dragState.lastDropCommitted ? "yes" : "no",
+      renderNote: "drag end observed",
+    });
+    if (snapshot) {
+      // keep the panel readable on end state
+      dragState.dropAllowed = snapshot.dropAllowed;
+      dragState.dropBlockedReason = snapshot.dropBlockedReason;
+    }
   }
 }
 
