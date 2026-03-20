@@ -105,6 +105,7 @@ const dragState = {
   dropAllowed: "unknown",
   dropBlockedReason: "-",
   lastDropCommitted: false,
+  commitSnapshot: null,
 };
 
 let timelineDebugPanel = null;
@@ -1360,6 +1361,33 @@ function initTimelineDebugPanel() {
       <div class="timeline-debug-row"><span>Rendered left</span><code data-debug-field="renderedLeft">-</code></div>
       <div class="timeline-debug-row"><span>Render note</span><code data-debug-field="renderNote">-</code></div>
     </div>
+    <div class="timeline-debug-section">
+      <div class="timeline-debug-section-title">Commit snapshot</div>
+      <div class="timeline-debug-row"><span>Commit status</span><code data-debug-field="commitStatus">-</code></div>
+      <div class="timeline-debug-row"><span>Drop fired</span><code data-debug-field="commitDropFired">-</code></div>
+      <div class="timeline-debug-row"><span>Drop committed</span><code data-debug-field="commitDropCommitted">-</code></div>
+      <div class="timeline-debug-row"><span>Committed item</span><code data-debug-field="commitItem">-</code></div>
+      <div class="timeline-debug-row"><span>Committed item id</span><code data-debug-field="commitItemId">-</code></div>
+      <div class="timeline-debug-row"><span>Original start</span><code data-debug-field="commitOriginalTime">-</code></div>
+      <div class="timeline-debug-row"><span>Original mins</span><code data-debug-field="commitOriginalMinutes">-</code></div>
+      <div class="timeline-debug-row"><span>Target lane</span><code data-debug-field="commitTargetLane">-</code></div>
+      <div class="timeline-debug-row"><span>Target channel</span><code data-debug-field="commitTargetChannelId">-</code></div>
+      <div class="timeline-debug-row"><span>Target category</span><code data-debug-field="commitTargetCategory">-</code></div>
+      <div class="timeline-debug-row"><span>Same lane</span><code data-debug-field="commitSameLane">-</code></div>
+      <div class="timeline-debug-row"><span>Content X</span><code data-debug-field="commitTimelineContentX">-</code></div>
+      <div class="timeline-debug-row"><span>Adjusted X</span><code data-debug-field="commitAdjustedX">-</code></div>
+      <div class="timeline-debug-row"><span>Pre-snap</span><code data-debug-field="commitPreSnapMinutes">-</code></div>
+      <div class="timeline-debug-row"><span>Snapped</span><code data-debug-field="commitSnappedMinutes">-</code></div>
+      <div class="timeline-debug-row"><span>Clamped</span><code data-debug-field="commitClampedMinutes">-</code></div>
+      <div class="timeline-debug-row"><span>New start</span><code data-debug-field="commitNewStart">-</code></div>
+      <div class="timeline-debug-row"><span>State updated</span><code data-debug-field="commitStateUpdated">-</code></div>
+      <div class="timeline-debug-row"><span>Render reflected</span><code data-debug-field="commitRenderReflected">-</code></div>
+      <div class="timeline-debug-row"><span>Rendered left</span><code data-debug-field="commitRenderedLeft">-</code></div>
+      <div class="timeline-debug-row"><span>Rendered label</span><code data-debug-field="commitRenderedLabel">-</code></div>
+      <div class="timeline-debug-row"><span>Post-check start</span><code data-debug-field="commitPostCheckStart">-</code></div>
+      <div class="timeline-debug-row"><span>Reverted</span><code data-debug-field="commitReverted">-</code></div>
+      <div class="timeline-debug-row"><span>Target detail</span><code data-debug-field="commitTargetDetail">-</code></div>
+    </div>
   `;
 
   document.body.appendChild(panel);
@@ -1456,6 +1484,31 @@ function updateTimelineDebugPanel(snapshot) {
   setTimelineDebugField("finalTime", snapshot.finalTime);
   setTimelineDebugField("renderedLeft", snapshot.renderedLeft);
   setTimelineDebugField("renderNote", snapshot.renderNote);
+  const commit = snapshot.commitSnapshot || dragState.commitSnapshot;
+  setTimelineDebugField("commitItem", commit?.itemTitle);
+  setTimelineDebugField("commitStatus", commit?.status);
+  setTimelineDebugField("commitDropFired", commit?.dropFired);
+  setTimelineDebugField("commitDropCommitted", commit?.dropCommitted);
+  setTimelineDebugField("commitItemId", commit?.itemId);
+  setTimelineDebugField("commitOriginalTime", commit?.originalStartTime);
+  setTimelineDebugField("commitOriginalMinutes", commit?.originalStartMinutes);
+  setTimelineDebugField("commitTargetLane", commit?.targetLaneLabel);
+  setTimelineDebugField("commitTargetChannelId", commit?.targetChannelId);
+  setTimelineDebugField("commitTargetCategory", commit?.targetLaneCategory);
+  setTimelineDebugField("commitSameLane", commit?.sameLane);
+  setTimelineDebugField("commitTimelineContentX", commit?.timelineContentX);
+  setTimelineDebugField("commitAdjustedX", commit?.adjustedX);
+  setTimelineDebugField("commitPreSnapMinutes", commit?.preSnapMinutes);
+  setTimelineDebugField("commitSnappedMinutes", commit?.snappedMinutes);
+  setTimelineDebugField("commitClampedMinutes", commit?.clampedMinutes);
+  setTimelineDebugField("commitNewStart", commit?.newStartTime);
+  setTimelineDebugField("commitStateUpdated", commit?.stateUpdated);
+  setTimelineDebugField("commitRenderReflected", commit?.renderReflected);
+  setTimelineDebugField("commitRenderedLeft", commit?.renderedLeft);
+  setTimelineDebugField("commitRenderedLabel", commit?.renderVisibleTimeLabel);
+  setTimelineDebugField("commitPostCheckStart", commit?.postCheckStart);
+  setTimelineDebugField("commitReverted", commit?.revertedAfterCommit);
+  setTimelineDebugField("commitTargetDetail", commit?.targetDetail);
 }
 
 function logTimelineEvent(stage, event, lane, extras = {}) {
@@ -1549,6 +1602,7 @@ function handleBlockDragStart(event) {
   }
   const item = state.items.find((entry) => entry.id === event.currentTarget.dataset.itemId);
   dragState.itemId = event.currentTarget.dataset.itemId;
+  dragState.commitSnapshot = null;
   dragState.draggedItemSnapshot = item
     ? {
         id: item.id,
@@ -1703,15 +1757,75 @@ function commitTimelineDrop(event, lane, source) {
   const fallbackTimelineX = getTimelineContentXFromPointer(event, lane);
   const timelineX = Number.isFinite(dragState.lastTimelineX) ? dragState.lastTimelineX : fallbackTimelineX;
   const dropFired = Boolean(event?.type === "drop");
+  const sourceItem = dragState.draggedItemSnapshot || item || null;
+  const targetChannelId = lane?.dataset?.channelId || null;
+  const targetLaneCategory = lane?.dataset?.category || null;
+  const targetLaneLabel = lane ? `${getChannelName(targetChannelId)} / ${targetLaneCategory}` : "-";
+  const targetDetail = [describeTimelineNode(event?.target), describeTimelineNode(event?.currentTarget), describeTimelineNode(resolveTimelineLaneFromEvent(event) || lane)].join(" | ");
+  const originalStartMinutes = sourceItem ? getSafeStartMinutes(sourceItem.start) : null;
+  const originalStartTime = sourceItem ? sourceItem.start : "-";
+  const originalChannelId = sourceItem?.channelId || item?.channelId || null;
+  const originalLaneCategory = sourceItem?.category || item?.category || null;
+  const sameLane = Boolean(
+    targetChannelId &&
+      targetLaneCategory &&
+      originalChannelId === targetChannelId &&
+      originalLaneCategory === targetLaneCategory,
+  );
+  const timelineContentX = timelineX;
+  const adjustedX = Number.isFinite(timelineX) ? timelineX - dragState.pointerOffsetX : null;
+  const preSnapMinutes = Number.isFinite(adjustedX) ? timelineXToMinutes(adjustedX) : null;
+  const snappedMinutes = Number.isFinite(preSnapMinutes) ? snapStartMinutes(item || sourceItem, preSnapMinutes) : null;
+  const duration = item ? getSafeDuration(item.duration, item.itemType) : sourceItem ? getSafeDuration(sourceItem.duration, sourceItem.itemType) : null;
+  const maxStart = Number.isFinite(duration) ? DAY_END - duration : DAY_END;
+  const clampedMinutes = Number.isFinite(snappedMinutes)
+    ? clampPlanningMinutes(Math.max(DAY_START, Math.min(maxStart, snappedMinutes)))
+    : null;
+
+  dragState.commitSnapshot = {
+    source,
+    dropFired,
+    dropCommitted: false,
+    itemId: sourceItem?.id || item?.id || "-",
+    itemTitle: sourceItem?.title || item?.title || "-",
+    originalStartMinutes,
+    originalStartTime,
+    timelineContentX: timelineX,
+    adjustedX,
+    preSnapMinutes,
+    snappedMinutes,
+    clampedMinutes,
+    targetChannelId,
+    targetLaneCategory,
+    targetLaneLabel,
+    sameLane,
+    targetDetail,
+    targetLabel: describeTimelineNode(event?.target),
+    currentTargetLabel: describeTimelineNode(event?.currentTarget),
+    closestLaneLabel: describeTimelineNode(resolveTimelineLaneFromEvent(event) || lane),
+    oldStart: sourceItem?.start || item?.start || "-",
+    oldChannelId: originalChannelId,
+    oldLaneCategory: originalLaneCategory,
+    newStartTime: "-",
+    newStartMinutes: null,
+    newChannelId: null,
+    newLaneCategory: null,
+    stateUpdated: false,
+    renderReflected: false,
+    revertedAfterCommit: false,
+    renderedLeft: null,
+    renderVisibleTimeLabel: "-",
+    status: "commit-pending",
+  };
 
   if (!lane) {
     dragState.dropAllowed = "no";
     dragState.dropBlockedReason = "no lane target";
+    dragState.commitSnapshot.status = "DROP FIRED BUT HAD NO VALID TARGET";
     if (DEBUG_TIMELINE_DND) {
       const blockedSnapshot = buildTimelineDebugSnapshot("drop", event, lane, item, {
-        timelineContentX: timelineX,
-        adjustedX:
-          Number.isFinite(timelineX) ? timelineX - dragState.pointerOffsetX : null,
+        timelineContentX,
+        adjustedX,
         fallbackX: fallbackTimelineX,
         xSource: Number.isFinite(dragState.lastTimelineX) ? "lastTimelineX" : "drop-event-fallback",
         dropStatus: "DROP FIRED BUT HAD NO VALID TARGET",
@@ -1719,10 +1833,19 @@ function commitTimelineDrop(event, lane, source) {
         dropCommitted: "no",
         dropAllowed: "no",
         dropBlockedReason: "no lane target",
+        targetLabel: dragState.commitSnapshot.targetLabel,
+        currentTargetLabel: dragState.commitSnapshot.currentTargetLabel,
+        closestLaneLabel: dragState.commitSnapshot.closestLaneLabel,
         renderNote: `source=${source}`,
+        commitSnapshot: dragState.commitSnapshot,
       });
       updateTimelineDebugPanel(blockedSnapshot);
       logTimelineDebug("drop", blockedSnapshot);
+      console.log("[timeline-dnd] commit blocked", {
+        itemId: dragState.commitSnapshot.itemId,
+        reason: "no lane target",
+        targetDetail,
+      });
     }
     return { committed: false, dropSnapshot: null, renderSnapshot: null };
   }
@@ -1737,11 +1860,11 @@ function commitTimelineDrop(event, lane, source) {
   if (!item) {
     dragState.dropAllowed = "yes";
     dragState.dropBlockedReason = "drag state empty";
+    dragState.commitSnapshot.status = "DROP FIRED BUT DRAG STATE WAS EMPTY";
     if (DEBUG_TIMELINE_DND) {
       const blockedSnapshot = buildTimelineDebugSnapshot("drop", event, lane, null, {
-        timelineContentX: timelineX,
-        adjustedX:
-          Number.isFinite(timelineX) ? timelineX - dragState.pointerOffsetX : null,
+        timelineContentX,
+        adjustedX,
         fallbackX: fallbackTimelineX,
         xSource: Number.isFinite(dragState.lastTimelineX) ? "lastTimelineX" : "drop-event-fallback",
         dropStatus: "DROP FIRED BUT DRAG STATE WAS EMPTY",
@@ -1749,44 +1872,81 @@ function commitTimelineDrop(event, lane, source) {
         dropCommitted: "no",
         dropAllowed: "yes",
         dropBlockedReason: "drag state empty",
+        targetLabel: dragState.commitSnapshot.targetLabel,
+        currentTargetLabel: dragState.commitSnapshot.currentTargetLabel,
+        closestLaneLabel: dragState.commitSnapshot.closestLaneLabel,
         renderNote: `source=${source}`,
+        commitSnapshot: dragState.commitSnapshot,
       });
       updateTimelineDebugPanel(blockedSnapshot);
       logTimelineDebug("drop", blockedSnapshot);
+      console.log("[timeline-dnd] commit blocked", {
+        itemId: dragState.commitSnapshot.itemId,
+        reason: "drag state empty",
+        targetDetail,
+      });
     }
     return { committed: false, dropSnapshot: null, renderSnapshot: null };
   }
 
-  const duration = getSafeDuration(item.duration, item.itemType);
-  const relativeX = timelineX - dragState.pointerOffsetX;
-  const preSnapMinutes = timelineXToMinutes(relativeX);
-  const snappedStart = snapStartMinutes(item, preSnapMinutes);
-  const maxStart = DAY_END - duration;
-  const clampedMinutes = clampPlanningMinutes(
-    Math.max(DAY_START, Math.min(maxStart, Number.isFinite(snappedStart) ? snappedStart : DAY_START)),
-  );
+  console.log("[timeline-dnd] commit before update", {
+    itemId: item.id,
+    title: item.title,
+    oldStart: item.start,
+    oldStartMinutes: getSafeStartMinutes(item.start),
+    oldChannelId: item.channelId,
+    oldLaneCategory: item.category,
+    newTargetChannelId: targetChannelId,
+    newTargetLaneCategory: targetLaneCategory,
+    sameLane,
+    timelineContentX: timelineX,
+    adjustedX,
+    preSnapMinutes,
+    snappedMinutes,
+    clampedMinutes,
+    targetDetail,
+  });
+
+  const relativeX = adjustedX;
+  const magneticMinutes = Number.isFinite(clampedMinutes) ? clampedMinutes : DAY_START;
   const magneticStart = applyMagneticTargets(
     item,
-    lane.dataset.channelId,
-    lane.dataset.category,
-    clampedMinutes,
+    targetChannelId,
+    targetLaneCategory,
+    magneticMinutes,
   );
 
-  item.channelId = lane.dataset.channelId;
-  item.category = lane.dataset.category;
+  item.channelId = targetChannelId;
+  item.category = targetLaneCategory;
   item.duration = duration;
   item.start = minutesToTime(clampPlanningMinutes(magneticStart));
   item.slot = getSlotFromMinutes(timeToMinutes(item.start));
+  dragState.commitSnapshot.stateUpdated = true;
+  dragState.commitSnapshot.newStartMinutes = timeToMinutes(item.start);
+  dragState.commitSnapshot.newStartTime = item.start;
+  dragState.commitSnapshot.newChannelId = item.channelId;
+  dragState.commitSnapshot.newLaneCategory = item.category;
+  dragState.commitSnapshot.dropCommitted = true;
+  dragState.commitSnapshot.status = "DROP FIRED AND COMMITTED";
+  dragState.commitSnapshot.renderVisibleTimeLabel = item.start;
+
+  console.log("[timeline-dnd] commit after update", {
+    itemId: item.id,
+    newStart: item.start,
+    newStartMinutes: getSafeStartMinutes(item.start),
+    newChannelId: item.channelId,
+    newLaneCategory: item.category,
+  });
 
   const dropSnapshot = DEBUG_TIMELINE_DND
     ? buildTimelineDebugSnapshot("drop", event, lane, item, {
-        timelineContentX: timelineX,
+        timelineContentX,
         adjustedX: relativeX,
         fallbackX: fallbackTimelineX,
         xSource: Number.isFinite(dragState.lastTimelineX) ? "lastTimelineX" : "drop-event-fallback",
         preSnapMinutes,
-        snappedMinutes: snappedStart,
-        clampedMinutes,
+        snappedMinutes,
+        clampedMinutes: magneticMinutes,
         finalMinutes: getSafeStartMinutes(item.start),
         finalTime: item.start,
         dropStatus: "DROP FIRED AND COMMITTED",
@@ -1795,7 +1955,11 @@ function commitTimelineDrop(event, lane, source) {
         dropAllowed: "yes",
         dropBlockedReason: "-",
         itemId: item.id,
+        targetLabel: dragState.commitSnapshot.targetLabel,
+        currentTargetLabel: dragState.commitSnapshot.currentTargetLabel,
+        closestLaneLabel: dragState.commitSnapshot.closestLaneLabel,
         renderNote: `source=${source}`,
+        commitSnapshot: dragState.commitSnapshot,
       })
     : null;
 
@@ -1807,15 +1971,23 @@ function commitTimelineDrop(event, lane, source) {
   clearLaneHighlights();
   persistAndRender();
 
+  const renderedItem = state.items.find((entry) => entry.id === item.id) || null;
+  const renderedLeft = renderedItem ? timelineMinutesToX(getSafeStartMinutes(renderedItem.start)) : null;
+  const renderVisibleTimeLabel = renderedItem?.start || "-";
+  const renderReflected = Boolean(renderedItem && renderedItem.start === item.start);
+  dragState.commitSnapshot.renderReflected = renderReflected;
+  dragState.commitSnapshot.renderedLeft = renderedLeft;
+  dragState.commitSnapshot.renderVisibleTimeLabel = renderVisibleTimeLabel;
+
   const renderSnapshot = DEBUG_TIMELINE_DND
     ? buildTimelineDebugSnapshot("render", event, lane, item, {
-        timelineContentX: timelineX,
+        timelineContentX,
         adjustedX: relativeX,
         fallbackX: fallbackTimelineX,
         xSource: Number.isFinite(dragState.lastTimelineX) ? "lastTimelineX" : "drop-event-fallback",
         preSnapMinutes,
-        snappedMinutes: snappedStart,
-        clampedMinutes,
+        snappedMinutes,
+        clampedMinutes: magneticMinutes,
         finalMinutes: getSafeStartMinutes(item.start),
         finalTime: item.start,
         dropStatus: "DROP FIRED AND COMMITTED",
@@ -1824,8 +1996,9 @@ function commitTimelineDrop(event, lane, source) {
         dropAllowed: "yes",
         dropBlockedReason: "-",
         itemId: item.id,
-        renderedLeft: timelineMinutesToX(getSafeStartMinutes(item.start)),
-        renderNote: `saved start rendered at ${timelineMinutesToX(getSafeStartMinutes(item.start))}px`,
+        renderedLeft,
+        renderNote: `saved start rendered at ${renderedLeft}px (${renderVisibleTimeLabel})`,
+        commitSnapshot: dragState.commitSnapshot,
       })
     : null;
 
@@ -1833,6 +2006,41 @@ function commitTimelineDrop(event, lane, source) {
     updateTimelineDebugPanel(renderSnapshot);
     logTimelineDebug("render", renderSnapshot);
   }
+
+  const postCheckItem = state.items.find((entry) => entry.id === item.id) || null;
+  const revertedAfterCommit = Boolean(
+    !postCheckItem ||
+      postCheckItem.start !== item.start ||
+      postCheckItem.channelId !== item.channelId ||
+      postCheckItem.category !== item.category,
+  );
+  dragState.commitSnapshot.revertedAfterCommit = revertedAfterCommit;
+  dragState.commitSnapshot.stateUpdated = Boolean(postCheckItem && postCheckItem.start === item.start);
+  dragState.commitSnapshot.renderReflected = Boolean(postCheckItem && postCheckItem.start === item.start);
+  dragState.commitSnapshot.postCheckStart = postCheckItem?.start || "-";
+  dragState.commitSnapshot.postCheckMinutes = postCheckItem ? getSafeStartMinutes(postCheckItem.start) : null;
+  dragState.commitSnapshot.postCheckTargetChannelId = postCheckItem?.channelId || null;
+  dragState.commitSnapshot.postCheckTargetLaneCategory = postCheckItem?.category || null;
+  dragState.commitSnapshot.postCheckMatched = Boolean(postCheckItem && postCheckItem.start === item.start);
+  if (revertedAfterCommit) {
+    console.log("[timeline-dnd] ITEM REVERTED AFTER COMMIT", {
+      itemId: item.id,
+      writtenStart: item.start,
+      postCheckStart: postCheckItem?.start || "-",
+      writtenChannelId: item.channelId,
+      postCheckChannelId: postCheckItem?.channelId || "-",
+      writtenCategory: item.category,
+      postCheckCategory: postCheckItem?.category || "-",
+    });
+  }
+  console.log("[timeline-dnd] post-commit check", {
+    itemId: item.id,
+    savedStart: postCheckItem?.start || "-",
+    savedStartMinutes: postCheckItem ? getSafeStartMinutes(postCheckItem.start) : null,
+    renderedLeft,
+    renderVisibleTimeLabel,
+    revertedAfterCommit,
+  });
 
   dragState.dropAllowed = "yes";
   dragState.dropBlockedReason = "-";
