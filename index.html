@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FS42 Scheduler</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-card">
+          <p class="eyebrow">Single-user network planner</p>
+          <h1>FS42 Scheduler</h1>
+          <p class="lede">
+            Scheduler-first planning board for FS42 channels, breaks, and exports.
+          </p>
+        </div>
+
+        <section class="panel controls-panel">
+          <div class="section-heading">
+            <h2>Planning Controls</h2>
+            <span>Set the view, planning scope, and colour logic</span>
+          </div>
+
+          <div class="split-fields">
+            <label class="field">
+              <span>View mode</span>
+              <select id="viewMode">
+                <option value="timeline">Timeline</option>
+                <option value="table">Table</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Planning scope</span>
+              <select id="timelineScale">
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Colour by</span>
+            <select id="colorMode">
+              <option value="channel">Channel</option>
+              <option value="slot">Time Slot</option>
+              <option value="importance">Importance</option>
+              <option value="type">Item Type</option>
+            </select>
+          </label>
+
+          <div class="split-fields">
+            <label class="field">
+              <span>Weekday</span>
+              <select id="dayFilter"></select>
+            </label>
+
+            <label class="field">
+              <span>Channel</span>
+              <select id="channelFilter"></select>
+            </label>
+          </div>
+
+          <div class="stat-grid">
+            <article class="mini-stat">
+              <span>Scheduled items</span>
+              <strong id="statBlocks">0</strong>
+            </article>
+            <article class="mini-stat">
+              <span>Planned runtime</span>
+              <strong id="statRuntime">0h</strong>
+            </article>
+            <article class="mini-stat">
+              <span>Commercial items</span>
+              <strong id="statPrime">0</strong>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel channel-panel">
+          <div class="section-heading">
+            <h2>Channels</h2>
+            <span>Name, group and colour your lineup</span>
+          </div>
+
+          <form id="channelForm">
+            <input type="hidden" id="channelId" />
+
+            <label class="field">
+              <span>Channel name</span>
+              <input id="channelName" name="channelName" type="text" placeholder="FS42 Main" required />
+            </label>
+
+            <div class="split-fields">
+              <label class="field">
+                <span>Channel group</span>
+                <input id="channelGroup" name="channelGroup" type="text" placeholder="Entertainment" />
+              </label>
+
+              <label class="field">
+                <span>Colour</span>
+                <input id="channelColor" name="channelColor" type="color" value="#ff8a5b" />
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Tagline</span>
+              <input id="channelTagline" name="channelTagline" type="text" placeholder="Flagship entertainment feed" />
+            </label>
+
+            <div class="button-row">
+              <button type="submit" class="button primary">Save Channel</button>
+              <button type="button" id="resetChannelForm" class="button secondary">Reset</button>
+            </div>
+          </form>
+
+          <div id="channelList" class="channel-list"></div>
+        </section>
+
+        <section class="panel form-panel">
+          <div class="section-heading">
+            <h2 id="formTitle">Add Item</h2>
+            <span id="formHint">Schedule programming, commercials, and bumpers</span>
+          </div>
+
+          <form id="showForm">
+            <input type="hidden" id="showId" />
+
+            <label class="field">
+              <span>Title</span>
+              <input id="title" name="title" type="text" placeholder="FS42 Breakfast Live" required />
+            </label>
+
+            <div class="split-fields triple">
+              <label class="field">
+                <span>Item type</span>
+                <select id="itemType" name="itemType">
+                  <option value="Programme">Programme</option>
+                  <option value="Ad Break">Ad Break</option>
+                  <option value="Ad Spot">Ad Spot</option>
+                  <option value="Bumper">Bumper</option>
+                  <option value="Promo">Promo</option>
+                  <option value="Continuity">Continuity</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Lane category</span>
+                <select id="category" name="category">
+                  <option value="Entertainment">Entertainment</option>
+                  <option value="Events">Events</option>
+                  <option value="Lifestyle">Lifestyle</option>
+                  <option value="Movies">Movies</option>
+                  <option value="Drama">Drama</option>
+                  <option value="Commercials">Commercials</option>
+                  <option value="Continuity">Continuity</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Importance</span>
+                <select id="importance" name="importance">
+                  <option value="Critical">Critical</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="flag-grid">
+              <label class="flag-toggle">
+                <input id="watershedRestricted" name="watershedRestricted" type="checkbox" />
+                <span>Watershed restricted</span>
+              </label>
+              <label class="flag-toggle">
+                <input id="primeTime" name="primeTime" type="checkbox" />
+                <span>Prime time</span>
+              </label>
+              <label class="flag-toggle">
+                <input id="mustRun" name="mustRun" type="checkbox" />
+                <span>Must-run</span>
+              </label>
+            </div>
+
+            <div class="split-fields">
+              <label class="field">
+                <span>Channel</span>
+                <select id="channel" name="channel"></select>
+              </label>
+
+              <label class="field">
+                <span>Day</span>
+                <select id="day" name="day"></select>
+              </label>
+            </div>
+
+            <div class="split-fields triple">
+              <label class="field">
+                <span>Start</span>
+                <input id="start" name="start" type="time" required />
+              </label>
+
+              <label class="field">
+                <span>Duration (mins)</span>
+                <input id="duration" name="duration" type="number" min="5" step="5" required />
+              </label>
+
+              <label class="field">
+                <span>Daypart</span>
+                <select id="slot" name="slot">
+                  <option value="Breakfast">Breakfast</option>
+                  <option value="Daytime">Daytime</option>
+                  <option value="Prime Time">Prime Time</option>
+                  <option value="Late">Late</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="split-fields">
+              <label class="field" title="Block family groups related items that should stay readable together. Use it for a strand, franchise, season, or special schedule block.">
+                <span>Block family</span>
+                <input id="blockGroup" name="blockGroup" type="text" placeholder="Morning magazine" />
+                <small class="field-help">Optional grouping label for related blocks. Keep it short and descriptive.</small>
+              </label>
+
+              <label class="field" title="Export code is the stable machine-friendly identifier used by FS42 ingest and re-import.">
+                <span>Export code</span>
+                <input id="assetCode" name="assetCode" type="text" placeholder="FS42-MAIN-001" />
+                <small class="field-help">Use a stable, unique code like <code>FS42-MAIN-001</code> for anything that must survive ingest.</small>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Notes</span>
+              <textarea id="notes" name="notes" rows="4" placeholder="Traffic notes, sponsorship, break structure, or playback instructions"></textarea>
+            </label>
+
+            <div id="itemValidation" class="validation-summary" aria-live="polite"></div>
+
+            <div class="button-row">
+              <button type="submit" class="button primary">Save Item</button>
+              <button type="button" id="duplicateItem" class="button secondary">Duplicate</button>
+              <button type="button" id="resetForm" class="button secondary">Reset</button>
+            </div>
+          </form>
+        </section>
+      </aside>
+
+      <main class="main-panel">
+        <section class="hero panel">
+          <div>
+            <p class="eyebrow">Planning Board</p>
+            <h2>Linear Channel Scheduling</h2>
+            <p>
+              Use the timeline for placement, the table for review, and export
+              channel schedules for FS42 when the board is ready.
+            </p>
+          </div>
+
+          <div class="hero-actions">
+            <div class="legend-header">
+              <h3>Colour Legend</h3>
+              <span id="legendModeLabel">Channel</span>
+            </div>
+            <div id="legend" class="legend"></div>
+            <label class="field export-profile-field">
+              <span>Export profile</span>
+              <select id="exportProfile">
+                <option value="fs42-strict">FS42 JSON (strict)</option>
+                <option value="internal">Internal scheduler JSON</option>
+              </select>
+            </label>
+            <div id="exportReadiness" class="export-readiness" aria-live="polite"></div>
+            <div class="button-row export-row">
+              <button id="exportCsv" type="button" class="button secondary">Export CSV</button>
+              <button id="exportJson" type="button" class="button secondary">Export Channel JSON</button>
+              <button id="seedButton" type="button" class="button secondary">Restore Demo Data</button>
+            </div>
+          </div>
+        </section>
+
+        <details class="panel help-panel">
+          <summary>
+            <span>How to use this</span>
+            <span>Quick workflow for FS42 handoff</span>
+          </summary>
+          <div class="help-steps">
+            <article>
+              <strong>1. Define channels</strong>
+              <p>Set the channel name, group, and colour before you start placing items.</p>
+            </article>
+            <article>
+              <strong>2. Add items</strong>
+              <p>Enter programmes, breaks, bumpers, promos, and the operational flags they need.</p>
+            </article>
+            <article>
+              <strong>3. Shape the timeline</strong>
+              <p>Drag, snap, and resize blocks until the lane reads cleanly across the day.</p>
+            </article>
+            <article>
+              <strong>4. Review and export</strong>
+              <p>Use table view for audit checks, then export when the readiness panel says you are clear.</p>
+            </article>
+          </div>
+        </details>
+
+        <section class="planner panel">
+          <div class="planner-toolbar">
+              <div>
+              <h3 id="timelineHeading">Monday Schedule</h3>
+              <p id="timelineSubheading">Drag blocks, resize edges, and dock ad junctions inside each lane.</p>
+            </div>
+          </div>
+
+          <div id="timelineView" class="planner-surface">
+            <div id="timelineShell" class="timeline-shell"></div>
+          </div>
+
+          <div id="tableView" class="table-view is-hidden">
+            <div class="table-shell">
+              <table class="schedule-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Item type</th>
+                    <th>Lane category</th>
+                    <th>Channel</th>
+                    <th>Day</th>
+                    <th>Start</th>
+                    <th>Duration</th>
+                    <th>Slot</th>
+                    <th>Status</th>
+                    <th>Flags</th>
+                    <th>Export code</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="lower-grid">
+          <section class="panel list-panel">
+            <div class="section-heading">
+              <h2>Review Board</h2>
+              <span>Programmes, ad breaks, spots, bumpers, and promos</span>
+            </div>
+            <div id="showList" class="show-list"></div>
+          </section>
+
+          <section class="panel insights-panel">
+            <div class="section-heading">
+              <h2>Readiness Notes</h2>
+              <span>Warnings, gaps, and export context</span>
+            </div>
+            <div id="insights" class="insights"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <template id="showCardTemplate">
+      <article class="show-card">
+        <div class="show-card-top">
+          <div>
+            <p class="show-card-title"></p>
+            <p class="show-card-meta"></p>
+          </div>
+          <span class="show-chip"></span>
+        </div>
+        <div class="show-card-flags"></div>
+        <p class="show-card-notes"></p>
+        <div class="card-actions">
+          <button class="button tertiary edit-button" type="button">Edit</button>
+          <button class="button tertiary duplicate-button" type="button">Duplicate</button>
+          <button class="button tertiary danger delete-button" type="button">Delete</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+  </html>

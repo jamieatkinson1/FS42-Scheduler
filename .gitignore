@@ -1,0 +1,24 @@
+# Operating system clutter
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor settings and local workspace files
+.vscode/
+.idea/
+.history/
+*.code-workspace
+
+# Temporary and backup files
+*.log
+*.tmp
+*.bak
+*.orig
+*.swp
+*.swo
+
+# Common build or cache folders, kept out of a lightweight static app repo
+node_modules/
+dist/
+coverage/
+.cache/
