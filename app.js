@@ -94,6 +94,7 @@ const elements = {
 const dragState = {
   itemId: null,
   pointerOffsetX: 0,
+  lastClientX: null,
 };
 
 const resizeState = {
@@ -1290,6 +1291,7 @@ function handleBlockDragStart(event) {
   dragState.itemId = event.currentTarget.dataset.itemId;
   const blockRect = event.currentTarget.getBoundingClientRect();
   dragState.pointerOffsetX = event.clientX - blockRect.left;
+  dragState.lastClientX = event.clientX;
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", dragState.itemId || "");
@@ -1302,10 +1304,12 @@ function handleBlockDragEnd(event) {
   clearLaneHighlights();
   dragState.itemId = null;
   dragState.pointerOffsetX = 0;
+  dragState.lastClientX = null;
 }
 
 function handleLaneDragOver(event) {
   event.preventDefault();
+  dragState.lastClientX = event.clientX;
   clearLaneHighlights();
   event.currentTarget.classList.add("drop-target");
 }
@@ -1320,10 +1324,8 @@ function handleLaneDrop(event) {
   if (!item) return;
 
   const lane = event.currentTarget;
-  const laneRect = lane.getBoundingClientRect();
   const duration = getSafeDuration(item.duration, item.itemType);
-  const scrollLeft = elements.timelineShell?.scrollLeft || 0;
-  const relativeX = event.clientX - laneRect.left + scrollLeft - dragState.pointerOffsetX;
+  const relativeX = getLaneDropX(event, lane) - dragState.pointerOffsetX;
   const snappedStart = snapStartMinutes(item, timelineXToMinutes(relativeX));
   const maxStart = DAY_END - duration;
   const magneticStart = applyMagneticTargets(
@@ -1345,6 +1347,17 @@ function handleLaneDrop(event) {
 
 function clearLaneHighlights() {
   document.querySelectorAll(".day-lane.drop-target").forEach((lane) => lane.classList.remove("drop-target"));
+}
+
+function getLaneDropX(event, lane) {
+  const shell = elements.timelineShell;
+  const clientX = Number.isFinite(event.clientX) ? event.clientX : dragState.lastClientX;
+  if (!shell || !Number.isFinite(clientX)) return 0;
+
+  const shellRect = shell.getBoundingClientRect();
+  const scrollLeft = shell.scrollLeft || 0;
+  const laneOffset = lane.offsetLeft || 0;
+  return clientX - shellRect.left + scrollLeft - laneOffset;
 }
 
 function startResize(event, itemId, edge) {
