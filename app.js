@@ -27,7 +27,7 @@ const DAY_END = 24 * 60;
 const SNAP_MINUTES = 5;
 const MAGNETIC_THRESHOLD = 7;
 const HOUR_WIDTH = getTimelineHourWidth();
-const DEBUG_TIMELINE_DND = true;
+const DEBUG_TIMELINE_DND = false;
 
 const DEFAULT_CHANNELS = [
   createChannel("FS42 Main", "Entertainment", "#ff8a5b", "Flagship entertainment feed"),
