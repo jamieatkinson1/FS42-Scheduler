@@ -27,6 +27,7 @@ const DAY_END = 24 * 60;
 const SNAP_MINUTES = 5;
 const MAGNETIC_THRESHOLD = 7;
 const HOUR_WIDTH = getTimelineHourWidth();
+const DEBUG_TIMELINE_DND = true;
 
 const DEFAULT_CHANNELS = [
   createChannel("FS42 Main", "Entertainment", "#ff8a5b", "Flagship entertainment feed"),
@@ -98,6 +99,8 @@ const dragState = {
   lastTimelineX: null,
 };
 
+let timelineDebugPanel = null;
+
 const resizeState = {
   itemId: null,
   edge: null,
@@ -114,6 +117,7 @@ init();
 function init() {
   populateStaticSelects();
   bindEvents();
+  if (DEBUG_TIMELINE_DND) initTimelineDebugPanel();
   syncControls();
   resetItemForm();
   resetChannelForm();
@@ -1284,11 +1288,180 @@ function renderIssueLine(issue) {
   return `${issue.title}: ${issue.message}`;
 }
 
+function initTimelineDebugPanel() {
+  if (timelineDebugPanel) return;
+
+  const panel = document.createElement("aside");
+  panel.className = "timeline-debug-panel";
+  panel.innerHTML = `
+    <div class="timeline-debug-title">Timeline DnD Debug</div>
+    <div class="timeline-debug-section">
+      <div class="timeline-debug-section-title">Drag event</div>
+      <div class="timeline-debug-row"><span>Stage</span><code data-debug-field="stage">idle</code></div>
+      <div class="timeline-debug-row"><span>Item</span><code data-debug-field="item">-</code></div>
+      <div class="timeline-debug-row"><span>Channel / lane</span><code data-debug-field="lane">-</code></div>
+      <div class="timeline-debug-row"><span>Event</span><code data-debug-field="event">-</code></div>
+      <div class="timeline-debug-row"><span>Pointer offset</span><code data-debug-field="pointerOffset">-</code></div>
+      <div class="timeline-debug-row"><span>Original mins</span><code data-debug-field="originalMinutes">-</code></div>
+      <div class="timeline-debug-row"><span>Original time</span><code data-debug-field="originalTime">-</code></div>
+    </div>
+    <div class="timeline-debug-section">
+      <div class="timeline-debug-section-title">Geometry</div>
+      <div class="timeline-debug-row"><span>Lane left</span><code data-debug-field="laneLeft">-</code></div>
+      <div class="timeline-debug-row"><span>Lane width</span><code data-debug-field="laneWidth">-</code></div>
+      <div class="timeline-debug-row"><span>Shell scrollLeft</span><code data-debug-field="scrollLeft">-</code></div>
+      <div class="timeline-debug-row"><span>Shell width</span><code data-debug-field="shellWidth">-</code></div>
+      <div class="timeline-debug-row"><span>Shell scrollWidth</span><code data-debug-field="shellScrollWidth">-</code></div>
+    </div>
+    <div class="timeline-debug-section">
+      <div class="timeline-debug-section-title">Derived X</div>
+      <div class="timeline-debug-row"><span>Visible lane X</span><code data-debug-field="visibleLaneX">-</code></div>
+      <div class="timeline-debug-row"><span>Timeline content X</span><code data-debug-field="timelineContentX">-</code></div>
+      <div class="timeline-debug-row"><span>Adjusted X</span><code data-debug-field="adjustedX">-</code></div>
+      <div class="timeline-debug-row"><span>Fallback X</span><code data-debug-field="fallbackX">-</code></div>
+      <div class="timeline-debug-row"><span>X source</span><code data-debug-field="xSource">-</code></div>
+    </div>
+    <div class="timeline-debug-section">
+      <div class="timeline-debug-section-title">Minutes</div>
+      <div class="timeline-debug-row"><span>Pre-snap</span><code data-debug-field="preSnapMinutes">-</code></div>
+      <div class="timeline-debug-row"><span>Snapped</span><code data-debug-field="snappedMinutes">-</code></div>
+      <div class="timeline-debug-row"><span>Clamped</span><code data-debug-field="clampedMinutes">-</code></div>
+    </div>
+    <div class="timeline-debug-section">
+      <div class="timeline-debug-section-title">Final result</div>
+      <div class="timeline-debug-row"><span>Saved minutes</span><code data-debug-field="finalMinutes">-</code></div>
+      <div class="timeline-debug-row"><span>Saved time</span><code data-debug-field="finalTime">-</code></div>
+      <div class="timeline-debug-row"><span>Rendered left</span><code data-debug-field="renderedLeft">-</code></div>
+      <div class="timeline-debug-row"><span>Render note</span><code data-debug-field="renderNote">-</code></div>
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+  timelineDebugPanel = {
+    root: panel,
+    fields: Object.fromEntries(
+      Array.from(panel.querySelectorAll("[data-debug-field]"), (node) => [node.dataset.debugField, node]),
+    ),
+  };
+}
+
+function setTimelineDebugField(name, value) {
+  if (!DEBUG_TIMELINE_DND || !timelineDebugPanel) return;
+  const node = timelineDebugPanel.fields[name];
+  if (!node) return;
+  node.textContent = formatTimelineDebugValue(value);
+}
+
+function formatTimelineDebugValue(value) {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "number" && Number.isFinite(value)) return Number.isInteger(value) ? String(value) : value.toFixed(2);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "string" && value.length === 0) return "-";
+  return String(value);
+}
+
+function logTimelineDebug(stage, snapshot) {
+  if (!DEBUG_TIMELINE_DND) return;
+  console.log(`[timeline-dnd] ${stage}`, snapshot);
+}
+
+function updateTimelineDebugPanel(snapshot) {
+  if (!DEBUG_TIMELINE_DND || !timelineDebugPanel || !snapshot) return;
+
+  setTimelineDebugField("stage", snapshot.stage);
+  setTimelineDebugField("item", snapshot.itemLabel);
+  setTimelineDebugField("lane", snapshot.laneLabel);
+  setTimelineDebugField("event", snapshot.eventLabel);
+  setTimelineDebugField("pointerOffset", snapshot.pointerOffsetX);
+  setTimelineDebugField("originalMinutes", snapshot.originalMinutes);
+  setTimelineDebugField("originalTime", snapshot.originalTime);
+  setTimelineDebugField("laneLeft", snapshot.laneLeft);
+  setTimelineDebugField("laneWidth", snapshot.laneWidth);
+  setTimelineDebugField("scrollLeft", snapshot.scrollLeft);
+  setTimelineDebugField("shellWidth", snapshot.shellClientWidth);
+  setTimelineDebugField("shellScrollWidth", snapshot.shellScrollWidth);
+  setTimelineDebugField("visibleLaneX", snapshot.visibleLaneX);
+  setTimelineDebugField("timelineContentX", snapshot.timelineContentX);
+  setTimelineDebugField("adjustedX", snapshot.adjustedX);
+  setTimelineDebugField("fallbackX", snapshot.fallbackX);
+  setTimelineDebugField("xSource", snapshot.xSource);
+  setTimelineDebugField("preSnapMinutes", snapshot.preSnapMinutes);
+  setTimelineDebugField("snappedMinutes", snapshot.snappedMinutes);
+  setTimelineDebugField("clampedMinutes", snapshot.clampedMinutes);
+  setTimelineDebugField("finalMinutes", snapshot.finalMinutes);
+  setTimelineDebugField("finalTime", snapshot.finalTime);
+  setTimelineDebugField("renderedLeft", snapshot.renderedLeft);
+  setTimelineDebugField("renderNote", snapshot.renderNote);
+}
+
+function buildTimelineDebugSnapshot(stage, event, lane, item, extras = {}) {
+  const shell = elements.timelineShell;
+  const laneRect = lane?.getBoundingClientRect?.() || null;
+  const clientX = Number.isFinite(event?.clientX) ? event.clientX : dragState.lastClientX;
+  const clientY = Number.isFinite(event?.clientY) ? event.clientY : null;
+  const laneLeft = laneRect ? laneRect.left : null;
+  const laneWidth = laneRect ? laneRect.width : null;
+  const shellScrollLeft = shell?.scrollLeft ?? 0;
+  const shellClientWidth = shell?.clientWidth ?? null;
+  const shellScrollWidth = shell?.scrollWidth ?? null;
+  const visibleLaneX = Number.isFinite(clientX) && Number.isFinite(laneLeft) ? clientX - laneLeft : null;
+  const timelineContentX =
+    Number.isFinite(extras.timelineContentX) ? extras.timelineContentX : visibleLaneX;
+  const adjustedX =
+    Number.isFinite(extras.adjustedX)
+      ? extras.adjustedX
+      : Number.isFinite(timelineContentX) && Number.isFinite(extras.pointerOffsetX)
+        ? timelineContentX - extras.pointerOffsetX
+        : null;
+  const preSnapMinutes = Number.isFinite(extras.preSnapMinutes)
+    ? extras.preSnapMinutes
+    : Number.isFinite(adjustedX)
+      ? timelineXToMinutes(adjustedX)
+      : null;
+  const snappedMinutes = Number.isFinite(extras.snappedMinutes)
+    ? extras.snappedMinutes
+    : Number.isFinite(preSnapMinutes)
+      ? snapStartMinutes(item || { itemType: "Programme", channelId: "", category: "" }, preSnapMinutes)
+      : null;
+  const clampedMinutes = Number.isFinite(extras.clampedMinutes) ? extras.clampedMinutes : null;
+
+  return {
+    stage,
+    itemLabel: item ? `${item.title} (${item.id})` : "-",
+    laneLabel: item ? `${getChannelName(item.channelId)} / ${item.category}` : "-",
+    eventLabel:
+      Number.isFinite(clientX) || Number.isFinite(clientY)
+        ? `clientX=${formatTimelineDebugValue(clientX)} clientY=${formatTimelineDebugValue(clientY)}`
+        : "-",
+    pointerOffsetX: dragState.pointerOffsetX,
+    originalMinutes: item ? getSafeStartMinutes(item.start) : null,
+    originalTime: item ? item.start : "-",
+    laneLeft,
+    laneWidth,
+    scrollLeft: shellScrollLeft,
+    shellClientWidth,
+    shellScrollWidth,
+    visibleLaneX,
+    timelineContentX,
+    adjustedX,
+    fallbackX: Number.isFinite(extras.fallbackX) ? extras.fallbackX : null,
+    xSource: extras.xSource || "-",
+    preSnapMinutes,
+    snappedMinutes,
+    clampedMinutes,
+    finalMinutes: Number.isFinite(extras.finalMinutes) ? extras.finalMinutes : null,
+    finalTime: extras.finalTime || "-",
+    renderedLeft: Number.isFinite(extras.renderedLeft) ? extras.renderedLeft : null,
+    renderNote: extras.renderNote || "-",
+  };
+}
+
 function handleBlockDragStart(event) {
   if (state.timelineScale !== "day") {
     event.preventDefault();
     return;
   }
+  const item = state.items.find((entry) => entry.id === event.currentTarget.dataset.itemId);
   dragState.itemId = event.currentTarget.dataset.itemId;
   const blockRect = event.currentTarget.getBoundingClientRect();
   dragState.pointerOffsetX = event.clientX - blockRect.left;
@@ -1299,6 +1472,18 @@ function handleBlockDragStart(event) {
     event.dataTransfer.setData("text/plain", dragState.itemId || "");
   }
   event.currentTarget.classList.add("dragging");
+
+  if (DEBUG_TIMELINE_DND) {
+    const snapshot = buildTimelineDebugSnapshot("dragstart", event, null, item, {
+      xSource: "dragstart",
+      originalMinutes: item ? getSafeStartMinutes(item.start) : null,
+      originalTime: item ? item.start : "-",
+      eventLabel: `clientX=${formatTimelineDebugValue(event.clientX)} clientY=${formatTimelineDebugValue(event.clientY)}`,
+      renderNote: "block picked up",
+    });
+    updateTimelineDebugPanel(snapshot);
+    logTimelineDebug("dragstart", snapshot);
+  }
 }
 
 function handleBlockDragEnd(event) {
@@ -1316,6 +1501,31 @@ function handleLaneDragOver(event) {
   dragState.lastTimelineX = getTimelineContentXFromPointer(event, event.currentTarget);
   clearLaneHighlights();
   event.currentTarget.classList.add("drop-target");
+
+  if (DEBUG_TIMELINE_DND) {
+    const item = state.items.find((entry) => entry.id === dragState.itemId);
+    const timelineX = dragState.lastTimelineX;
+    const adjustedX = Number.isFinite(timelineX) ? timelineX - dragState.pointerOffsetX : null;
+    const preSnapMinutes = Number.isFinite(adjustedX) ? timelineXToMinutes(adjustedX) : null;
+    const snappedMinutes = Number.isFinite(preSnapMinutes) ? snapStartMinutes(item, preSnapMinutes) : null;
+    const duration = item ? getSafeDuration(item.duration, item.itemType) : null;
+    const clampedMinutes =
+      Number.isFinite(snappedMinutes) && Number.isFinite(duration)
+        ? Math.max(DAY_START, Math.min(DAY_END - duration, snappedMinutes))
+        : null;
+    const snapshot = buildTimelineDebugSnapshot("dragover", event, event.currentTarget, item, {
+      timelineContentX: timelineX,
+      adjustedX,
+      preSnapMinutes,
+      snappedMinutes,
+      clampedMinutes,
+      xSource: "dragover:lastTimelineX",
+      fallbackX: null,
+      renderNote: "live hover preview",
+    });
+    updateTimelineDebugPanel(snapshot);
+    logTimelineDebug("dragover", snapshot);
+  }
 }
 
 function handleLaneDragLeave(event) {
@@ -1329,9 +1539,8 @@ function handleLaneDrop(event) {
 
   const lane = event.currentTarget;
   const duration = getSafeDuration(item.duration, item.itemType);
-  const timelineX = Number.isFinite(dragState.lastTimelineX)
-    ? dragState.lastTimelineX
-    : getTimelineContentXFromPointer(event, lane);
+  const fallbackTimelineX = getTimelineContentXFromPointer(event, lane);
+  const timelineX = Number.isFinite(dragState.lastTimelineX) ? dragState.lastTimelineX : fallbackTimelineX;
   const relativeX = timelineX - dragState.pointerOffsetX;
   const snappedStart = snapStartMinutes(item, timelineXToMinutes(relativeX));
   const maxStart = DAY_END - duration;
@@ -1348,8 +1557,46 @@ function handleLaneDrop(event) {
   item.start = minutesToTime(clampPlanningMinutes(magneticStart));
   item.slot = getSlotFromMinutes(timeToMinutes(item.start));
 
+  if (DEBUG_TIMELINE_DND) {
+    const preSnapMinutes = timelineXToMinutes(relativeX);
+    const clampedMinutes = clampPlanningMinutes(Math.max(DAY_START, Math.min(maxStart, Number.isFinite(snappedStart) ? snappedStart : DAY_START)));
+    const snapshot = buildTimelineDebugSnapshot("drop", event, lane, item, {
+      timelineContentX: timelineX,
+      adjustedX: relativeX,
+      fallbackX: fallbackTimelineX,
+      xSource: Number.isFinite(dragState.lastTimelineX) ? "lastTimelineX" : "drop-event-fallback",
+      preSnapMinutes,
+      snappedMinutes,
+      clampedMinutes,
+      finalMinutes: getSafeStartMinutes(item.start),
+      finalTime: item.start,
+      renderNote: "item updated before render",
+    });
+    updateTimelineDebugPanel(snapshot);
+    logTimelineDebug("drop", snapshot);
+  }
+
   clearLaneHighlights();
   persistAndRender();
+
+  if (DEBUG_TIMELINE_DND) {
+    const renderedLeft = timelineMinutesToX(getSafeStartMinutes(item.start));
+    const renderSnapshot = buildTimelineDebugSnapshot("render", event, lane, item, {
+      timelineContentX: timelineX,
+      adjustedX: relativeX,
+      fallbackX: fallbackTimelineX,
+      xSource: Number.isFinite(dragState.lastTimelineX) ? "lastTimelineX" : "drop-event-fallback",
+      preSnapMinutes: timelineXToMinutes(relativeX),
+      snappedMinutes,
+      clampedMinutes: clampPlanningMinutes(Math.max(DAY_START, Math.min(maxStart, Number.isFinite(snappedStart) ? snappedStart : DAY_START))),
+      finalMinutes: getSafeStartMinutes(item.start),
+      finalTime: item.start,
+      renderedLeft,
+      renderNote: `saved start rendered at ${renderedLeft}px`,
+    });
+    updateTimelineDebugPanel(renderSnapshot);
+    logTimelineDebug("render", renderSnapshot);
+  }
 }
 
 function clearLaneHighlights() {
