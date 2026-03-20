@@ -709,7 +709,8 @@ function handleBlockPointerDown(event) {
   event.stopPropagation();
 
   const originLane = event.currentTarget.closest(".day-lane");
-  const blockRect = event.currentTarget.getBoundingClientRect();
+  const pointerContext = getPointerTimelineContext(event, originLane);
+  const blockLeftX = getItemTimelineLeftX(item);
 
   pointerDragState.active = true;
   pointerDragState.itemId = item.id;
@@ -737,10 +738,14 @@ function handleBlockPointerDown(event) {
     assetCode: item.assetCode,
     notes: item.notes,
   };
-  pointerDragState.pointerOffsetX = event.clientX - blockRect.left;
-  pointerDragState.pointerOffsetY = event.clientY - blockRect.top;
-  pointerDragState.lastClientX = event.clientX;
-  pointerDragState.lastClientY = event.clientY;
+  pointerDragState.pointerOffsetX = Number.isFinite(pointerContext.timelineContentX)
+    ? pointerContext.timelineContentX - blockLeftX
+    : 0;
+  pointerDragState.pointerOffsetY = Number.isFinite(pointerContext.clientY) && originLane
+    ? pointerContext.clientY - originLane.getBoundingClientRect().top
+    : 0;
+  pointerDragState.lastClientX = pointerContext.clientX;
+  pointerDragState.lastClientY = pointerContext.clientY;
   pointerDragState.lastLaneEl = originLane;
   pointerDragState.lastChannelId = item.channelId;
   pointerDragState.lastCategory = item.category;
@@ -755,7 +760,7 @@ function handleBlockPointerDown(event) {
 
   dragState.itemId = item.id;
   dragState.pointerOffsetX = pointerDragState.pointerOffsetX;
-  dragState.lastClientX = event.clientX;
+  dragState.lastClientX = pointerContext.clientX;
   dragState.lastTimelineX = null;
   dragState.draggedItemSnapshot = { ...pointerDragState.originItemSnapshot };
   dragState.commitSnapshot = null;
@@ -793,13 +798,15 @@ function handleBlockPointerDown(event) {
       timingSnapshot: dragState.timingSnapshot,
     });
     updateTimelineDebugPanel(snapshot);
-    console.log("[timeline-dnd] pointerdown", {
-      itemId: item.id,
-      originalStart: item.start,
-      originLane: pointerDragState.originLaneLabel,
-      pointerOffsetX: pointerDragState.pointerOffsetX,
-    });
-  }
+      console.log("[timeline-dnd] pointerdown", {
+        itemId: item.id,
+        originalStart: item.start,
+        originLane: pointerDragState.originLaneLabel,
+        pointerOffsetX: pointerDragState.pointerOffsetX,
+        blockLeftX,
+        pointerTimelineX: pointerContext.timelineContentX,
+      });
+    }
 
   schedulePointerDragRender();
 }
@@ -1783,6 +1790,10 @@ function timelineXToMinutes(x) {
 
 function timelinePixelsToMinutes(px) {
   return (px / HOUR_WIDTH) * 60;
+}
+
+function getItemTimelineLeftX(item) {
+  return timelineMinutesToX(clampPlanningMinutes(getSafeStartMinutes(item.start)));
 }
 
 function getSafeStartMinutes(value, fallback = DAY_START) {
