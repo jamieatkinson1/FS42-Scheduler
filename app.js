@@ -95,6 +95,7 @@ const dragState = {
   itemId: null,
   pointerOffsetX: 0,
   lastClientX: null,
+  lastTimelineX: null,
 };
 
 const resizeState = {
@@ -1292,6 +1293,7 @@ function handleBlockDragStart(event) {
   const blockRect = event.currentTarget.getBoundingClientRect();
   dragState.pointerOffsetX = event.clientX - blockRect.left;
   dragState.lastClientX = event.clientX;
+  dragState.lastTimelineX = null;
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", dragState.itemId || "");
@@ -1305,11 +1307,13 @@ function handleBlockDragEnd(event) {
   dragState.itemId = null;
   dragState.pointerOffsetX = 0;
   dragState.lastClientX = null;
+  dragState.lastTimelineX = null;
 }
 
 function handleLaneDragOver(event) {
   event.preventDefault();
   dragState.lastClientX = event.clientX;
+  dragState.lastTimelineX = getTimelineContentXFromPointer(event, event.currentTarget);
   clearLaneHighlights();
   event.currentTarget.classList.add("drop-target");
 }
@@ -1325,7 +1329,10 @@ function handleLaneDrop(event) {
 
   const lane = event.currentTarget;
   const duration = getSafeDuration(item.duration, item.itemType);
-  const relativeX = getLaneDropX(event, lane) - dragState.pointerOffsetX;
+  const timelineX = Number.isFinite(dragState.lastTimelineX)
+    ? dragState.lastTimelineX
+    : getTimelineContentXFromPointer(event, lane);
+  const relativeX = timelineX - dragState.pointerOffsetX;
   const snappedStart = snapStartMinutes(item, timelineXToMinutes(relativeX));
   const maxStart = DAY_END - duration;
   const magneticStart = applyMagneticTargets(
@@ -1349,15 +1356,12 @@ function clearLaneHighlights() {
   document.querySelectorAll(".day-lane.drop-target").forEach((lane) => lane.classList.remove("drop-target"));
 }
 
-function getLaneDropX(event, lane) {
-  const shell = elements.timelineShell;
+function getTimelineContentXFromPointer(event, lane) {
   const clientX = Number.isFinite(event.clientX) ? event.clientX : dragState.lastClientX;
-  if (!shell || !Number.isFinite(clientX)) return 0;
+  if (!Number.isFinite(clientX) || !lane) return NaN;
 
-  const shellRect = shell.getBoundingClientRect();
-  const scrollLeft = shell.scrollLeft || 0;
-  const laneOffset = lane.offsetLeft || 0;
-  return clientX - shellRect.left + scrollLeft - laneOffset;
+  const laneRect = lane.getBoundingClientRect();
+  return clientX - laneRect.left;
 }
 
 function startResize(event, itemId, edge) {
