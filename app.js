@@ -109,6 +109,35 @@ const dragState = {
   timingSnapshot: null,
 };
 
+const pointerDragState = {
+  active: false,
+  itemId: null,
+  pointerId: null,
+  originLaneEl: null,
+  originChannelId: null,
+  originCategory: null,
+  originLaneLabel: "-",
+  originStartMinutes: null,
+  originStartTime: "-",
+  originItemSnapshot: null,
+  pointerOffsetX: 0,
+  pointerOffsetY: 0,
+  lastClientX: null,
+  lastClientY: null,
+  lastLaneEl: null,
+  lastChannelId: null,
+  lastCategory: null,
+  lastVisibleLaneX: null,
+  lastTimelineContentX: null,
+  lastAdjustedX: null,
+  lastPreSnapMinutes: null,
+  lastSnappedMinutes: null,
+  lastClampedMinutes: null,
+  previewItem: null,
+  pendingFrame: false,
+  rafId: 0,
+};
+
 let timelineDebugPanel = null;
 
 const resizeState = {
@@ -249,13 +278,9 @@ function bindEvents() {
   elements.exportCsv.addEventListener("click", () => exportSchedule("csv"));
   elements.exportJson.addEventListener("click", () => exportSchedule("json"));
 
-  if (elements.timelineShell) {
-    elements.timelineShell.addEventListener("dragenter", handleTimelineDragEnterCapture, true);
-    elements.timelineShell.addEventListener("dragover", handleTimelineDragOverCapture, true);
-    elements.timelineShell.addEventListener("drop", handleTimelineDropCapture, true);
-    elements.timelineShell.addEventListener("dragleave", handleTimelineDragLeaveCapture, true);
-  }
-  document.addEventListener("dragend", handleTimelineDragEndCapture, true);
+  document.addEventListener("pointermove", handleBlockPointerMove, true);
+  document.addEventListener("pointerup", handleBlockPointerUp, true);
+  document.addEventListener("pointercancel", handleBlockPointerCancel, true);
 
   window.addEventListener("mousemove", handleResizeMove);
   window.addEventListener("mouseup", stopResize);
@@ -459,7 +484,8 @@ function renderPlanner() {
 function renderDayTimeline() {
   const visibleChannels = getVisibleChannels();
   const visibleItems = getVisibleItems();
-  const conflictIds = new Set(getConflicts(visibleItems));
+  const renderItems = getTimelineRenderItems(visibleItems);
+  const conflictIds = new Set(getConflicts(renderItems));
   const validation = validateSchedule(state.exportProfile);
 
   elements.timelineHeading.textContent = `${state.selectedDay} Operational Schedule`;
@@ -487,7 +513,7 @@ function renderDayTimeline() {
 
   visibleChannels.forEach((channel) => {
     getLaneCategories(channel.id).forEach((category) => {
-      const laneItems = visibleItems
+      const laneItems = renderItems
         .filter((item) => item.channelId === channel.id && item.category === category)
         .sort(compareItems);
       const layout = computeLaneLayout(laneItems);
@@ -504,9 +530,6 @@ function renderDayTimeline() {
       lane.dataset.channelId = channel.id;
       lane.dataset.category = category;
       lane.style.minHeight = `${Math.max(54, layout.levels * 40 + 8)}px`;
-      lane.addEventListener("dragover", handleLaneDragOver);
-      lane.addEventListener("dragleave", handleLaneDragLeave);
-      lane.addEventListener("drop", handleLaneDrop);
       renderSlotBands(lane);
 
       laneItems.forEach((item) => {
@@ -629,9 +652,11 @@ function createDayBlock(item, level, hasConflict, issues = []) {
   const left = timelineMinutesToX(startMinutes);
   const width = Math.max((duration / 60) * HOUR_WIDTH, ITEM_TYPE_META[item.itemType]?.commercial ? 42 : 48);
   block.className = "schedule-block";
-  block.draggable = true;
   block.dataset.itemId = item.id;
+  block.dataset.channelId = item.channelId;
+  block.dataset.category = item.category;
   if (elements.showId.value === item.id) block.classList.add("is-active");
+  if (pointerDragState.active && pointerDragState.itemId === item.id) block.classList.add("is-pointer-dragging");
   block.style.left = `${left}px`;
   block.style.top = `${6 + level * 38}px`;
   block.style.width = `${width}px`;
@@ -663,9 +688,613 @@ function createDayBlock(item, level, hasConflict, issues = []) {
   rightHandle.addEventListener("mousedown", (event) => startResize(event, item.id, "right"));
 
   block.append(leftHandle, content, rightHandle);
-  block.addEventListener("dragstart", handleBlockDragStart);
-  block.addEventListener("dragend", handleBlockDragEnd);
+  block.addEventListener("pointerdown", handleBlockPointerDown);
   return block;
+}
+
+function getTimelineRenderItems(items) {
+  if (!pointerDragState.active || !pointerDragState.previewItem) return items;
+  return items.map((item) => (item.id === pointerDragState.itemId ? pointerDragState.previewItem : item));
+}
+
+function handleBlockPointerDown(event) {
+  if (state.timelineScale !== "day") return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  if (event.target?.closest?.(".resize-handle")) return;
+
+  const item = state.items.find((entry) => entry.id === event.currentTarget.dataset.itemId);
+  if (!item) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const originLane = event.currentTarget.closest(".day-lane");
+  const blockRect = event.currentTarget.getBoundingClientRect();
+
+  pointerDragState.active = true;
+  pointerDragState.itemId = item.id;
+  pointerDragState.pointerId = event.pointerId ?? null;
+  pointerDragState.originLaneEl = originLane;
+  pointerDragState.originChannelId = item.channelId;
+  pointerDragState.originCategory = item.category;
+  pointerDragState.originLaneLabel = originLane ? `${getChannelName(item.channelId)} / ${item.category}` : "-";
+  pointerDragState.originStartMinutes = getSafeStartMinutes(item.start);
+  pointerDragState.originStartTime = item.start;
+  pointerDragState.originItemSnapshot = {
+    id: item.id,
+    title: item.title,
+    itemType: item.itemType,
+    category: item.category,
+    channelId: item.channelId,
+    start: item.start,
+    duration: item.duration,
+    slot: item.slot,
+    importance: item.importance,
+    watershedRestricted: item.watershedRestricted,
+    primeTime: item.primeTime,
+    mustRun: item.mustRun,
+    blockGroup: item.blockGroup,
+    assetCode: item.assetCode,
+    notes: item.notes,
+  };
+  pointerDragState.pointerOffsetX = event.clientX - blockRect.left;
+  pointerDragState.pointerOffsetY = event.clientY - blockRect.top;
+  pointerDragState.lastClientX = event.clientX;
+  pointerDragState.lastClientY = event.clientY;
+  pointerDragState.lastLaneEl = originLane;
+  pointerDragState.lastChannelId = item.channelId;
+  pointerDragState.lastCategory = item.category;
+  pointerDragState.lastVisibleLaneX = null;
+  pointerDragState.lastTimelineContentX = null;
+  pointerDragState.lastAdjustedX = null;
+  pointerDragState.lastPreSnapMinutes = null;
+  pointerDragState.lastSnappedMinutes = null;
+  pointerDragState.lastClampedMinutes = null;
+  pointerDragState.previewItem = { ...pointerDragState.originItemSnapshot };
+  pointerDragState.pendingFrame = false;
+
+  dragState.itemId = item.id;
+  dragState.pointerOffsetX = pointerDragState.pointerOffsetX;
+  dragState.lastClientX = event.clientX;
+  dragState.lastTimelineX = null;
+  dragState.draggedItemSnapshot = { ...pointerDragState.originItemSnapshot };
+  dragState.commitSnapshot = null;
+  dragState.timingSnapshot = {
+    status: "dragging",
+    hover: null,
+    commit: null,
+    final: null,
+    postRender: null,
+    matches: {
+      hoverToCommit: "-",
+      commitToSaved: "-",
+      savedToRecheck: "-",
+    },
+    itemId: item.id,
+    itemTitle: item.title,
+    originalStartMinutes: pointerDragState.originStartMinutes,
+    originalStartTime: item.start,
+    revertedAfterCommit: "no",
+  };
+
+  document.body.classList.add("is-pointer-dragging");
+
+  if (DEBUG_TIMELINE_DND) {
+    const snapshot = buildTimelineDebugSnapshot("pointerdown", event, originLane, item, {
+      dropStatus: "POINTER DOWN",
+      dropFired: "no",
+      dropCommitted: "no",
+      dropAllowed: "unknown",
+      dropBlockedReason: "-",
+      targetLabel: describeTimelineNode(event.target),
+      currentTargetLabel: describeTimelineNode(event.currentTarget),
+      closestLaneLabel: describeTimelineNode(originLane),
+      renderNote: "pointer drag started",
+      timingSnapshot: dragState.timingSnapshot,
+    });
+    updateTimelineDebugPanel(snapshot);
+    console.log("[timeline-dnd] pointerdown", {
+      itemId: item.id,
+      originalStart: item.start,
+      originLane: pointerDragState.originLaneLabel,
+      pointerOffsetX: pointerDragState.pointerOffsetX,
+    });
+  }
+
+  schedulePointerDragRender();
+}
+
+function handleBlockPointerMove(event) {
+  if (!pointerDragState.active) return;
+  if (pointerDragState.pointerId !== null && event.pointerId !== pointerDragState.pointerId) return;
+
+  event.preventDefault();
+  updatePointerDragPreviewFromEvent(event, "move");
+  schedulePointerDragRender();
+}
+
+function handleBlockPointerUp(event) {
+  if (!pointerDragState.active) return;
+  if (pointerDragState.pointerId !== null && event.pointerId !== pointerDragState.pointerId) return;
+
+  event.preventDefault();
+  updatePointerDragPreviewFromEvent(event, "up");
+  commitPointerDrag(event);
+}
+
+function handleBlockPointerCancel(event) {
+  if (!pointerDragState.active) return;
+  if (pointerDragState.pointerId !== null && event.pointerId !== pointerDragState.pointerId) return;
+  cancelPointerDrag("pointercancel", event);
+}
+
+function schedulePointerDragRender() {
+  if (!pointerDragState.active || pointerDragState.pendingFrame) return;
+  pointerDragState.pendingFrame = true;
+  pointerDragState.rafId = window.requestAnimationFrame(() => {
+    pointerDragState.pendingFrame = false;
+    if (!pointerDragState.active) return;
+    renderPlanner();
+  });
+}
+
+function getPointerLaneFromEvent(event, fallbackLane = null) {
+  const pointElement = document.elementFromPoint(event.clientX, event.clientY);
+  return pointElement?.closest?.(".day-lane") || fallbackLane || pointerDragState.lastLaneEl || pointerDragState.originLaneEl || null;
+}
+
+function getPointerTimelineContext(event, fallbackLane = null) {
+  const lane = getPointerLaneFromEvent(event, fallbackLane);
+  const shell = elements.timelineShell;
+  const laneRect = lane?.getBoundingClientRect?.() || null;
+  const clientX = Number.isFinite(event?.clientX) ? event.clientX : pointerDragState.lastClientX;
+  const clientY = Number.isFinite(event?.clientY) ? event.clientY : pointerDragState.lastClientY;
+  const shellScrollLeft = shell?.scrollLeft ?? 0;
+  const shellClientWidth = shell?.clientWidth ?? null;
+  const shellScrollWidth = shell?.scrollWidth ?? null;
+  const visibleLaneX = Number.isFinite(clientX) && laneRect ? clientX - laneRect.left : null;
+  const timelineContentX = Number.isFinite(visibleLaneX) ? visibleLaneX + shellScrollLeft : null;
+
+  return {
+    lane,
+    clientX,
+    clientY,
+    laneLeft: laneRect ? laneRect.left : null,
+    laneWidth: laneRect ? laneRect.width : null,
+    shellScrollLeft,
+    shellClientWidth,
+    shellScrollWidth,
+    visibleLaneX,
+    timelineContentX,
+  };
+}
+
+function updatePointerDragPreviewFromEvent(event, stage) {
+  const sourceItem = pointerDragState.originItemSnapshot || state.items.find((entry) => entry.id === pointerDragState.itemId) || null;
+  if (!sourceItem) return null;
+
+  const context = getPointerTimelineContext(event, pointerDragState.lastLaneEl || pointerDragState.originLaneEl);
+  const lane = context.lane || pointerDragState.lastLaneEl || pointerDragState.originLaneEl || null;
+  const adjustedX = Number.isFinite(context.timelineContentX) ? context.timelineContentX - pointerDragState.pointerOffsetX : null;
+  const preSnapMinutes = Number.isFinite(adjustedX) ? timelineXToMinutes(adjustedX) : null;
+  const snappedMinutes = Number.isFinite(preSnapMinutes) ? snapStartMinutes(sourceItem, preSnapMinutes) : null;
+  const duration = getSafeDuration(sourceItem.duration, sourceItem.itemType);
+  const clampedMinutes = Number.isFinite(snappedMinutes)
+    ? Math.max(DAY_START, Math.min(DAY_END - duration, snappedMinutes))
+    : null;
+  const finalMinutes = Number.isFinite(clampedMinutes) ? clampedMinutes : pointerDragState.originStartMinutes;
+  const targetChannelId = lane?.dataset?.channelId || pointerDragState.lastChannelId || pointerDragState.originChannelId;
+  const targetLaneCategory = lane?.dataset?.category || pointerDragState.lastCategory || pointerDragState.originCategory;
+  const targetLaneLabel = lane ? `${getChannelName(targetChannelId)} / ${targetLaneCategory}` : pointerDragState.originLaneLabel;
+  const finalStart = minutesToTime(clampPlanningMinutes(finalMinutes));
+
+  pointerDragState.lastClientX = context.clientX;
+  pointerDragState.lastClientY = context.clientY;
+  pointerDragState.lastLaneEl = lane;
+  pointerDragState.lastChannelId = targetChannelId;
+  pointerDragState.lastCategory = targetLaneCategory;
+  pointerDragState.lastVisibleLaneX = context.visibleLaneX;
+  pointerDragState.lastTimelineContentX = context.timelineContentX;
+  pointerDragState.lastAdjustedX = adjustedX;
+  pointerDragState.lastPreSnapMinutes = preSnapMinutes;
+  pointerDragState.lastSnappedMinutes = snappedMinutes;
+  pointerDragState.lastClampedMinutes = clampedMinutes;
+  pointerDragState.previewItem = {
+    ...pointerDragState.originItemSnapshot,
+    channelId: targetChannelId,
+    category: targetLaneCategory,
+    start: finalStart,
+    duration,
+    slot: getSlotFromMinutes(finalMinutes),
+  };
+
+  dragState.lastClientX = context.clientX;
+  dragState.lastTimelineX = context.timelineContentX;
+  dragState.lastEventType = `pointer${stage}`;
+  dragState.lastTargetLabel = describeTimelineNode(event.target);
+  dragState.lastCurrentTargetLabel = describeTimelineNode(event.currentTarget);
+  dragState.lastClosestLaneLabel = describeTimelineNode(lane);
+  dragState.dropAllowed = lane ? "yes" : "unknown";
+  dragState.dropBlockedReason = lane ? "-" : "no lane under pointer";
+
+  if (!dragState.timingSnapshot) {
+    dragState.timingSnapshot = {
+      status: "dragging",
+      hover: null,
+      commit: null,
+      final: null,
+      postRender: null,
+      matches: { hoverToCommit: "-", commitToSaved: "-", savedToRecheck: "-" },
+      itemId: sourceItem.id,
+      itemTitle: sourceItem.title,
+      originalStartMinutes: pointerDragState.originStartMinutes,
+      originalStartTime: pointerDragState.originStartTime,
+      revertedAfterCommit: "no",
+    };
+  }
+
+  dragState.timingSnapshot.status = "hovering";
+  dragState.timingSnapshot.itemId = sourceItem.id;
+  dragState.timingSnapshot.itemTitle = sourceItem.title;
+  dragState.timingSnapshot.originalStartMinutes = pointerDragState.originStartMinutes;
+  dragState.timingSnapshot.originalStartTime = pointerDragState.originStartTime;
+  dragState.timingSnapshot.hover = {
+    itemId: sourceItem.id,
+    itemTitle: sourceItem.title,
+    originalStartMinutes: pointerDragState.originStartMinutes,
+    originalStartTime: pointerDragState.originStartTime,
+    visibleLaneX: context.visibleLaneX,
+    timelineContentX: context.timelineContentX,
+    adjustedX,
+    preSnapMinutes,
+    snappedMinutes,
+    clampedMinutes,
+    targetChannelId,
+    targetLaneCategory,
+    targetLaneLabel,
+  };
+
+  if (DEBUG_TIMELINE_DND) {
+    const snapshot = buildTimelineDebugSnapshot(`pointer${stage}`, event, lane, sourceItem, {
+      timelineContentX: context.timelineContentX,
+      visibleLaneX: context.visibleLaneX,
+      adjustedX,
+      preSnapMinutes,
+      snappedMinutes,
+      clampedMinutes,
+      dropAllowed: dragState.dropAllowed,
+      dropBlockedReason: dragState.dropBlockedReason,
+      dropStatus: stage === "move" ? "POINTER HOVER" : "POINTER SETTLED",
+      dropFired: "no",
+      dropCommitted: "no",
+      targetLabel: describeTimelineNode(event.target),
+      currentTargetLabel: describeTimelineNode(event.currentTarget),
+      closestLaneLabel: describeTimelineNode(lane),
+      renderNote: stage === "move" ? "live pointer preview" : "pointer release preview",
+      timingSnapshot: dragState.timingSnapshot,
+    });
+    updateTimelineDebugPanel(snapshot);
+    console.log("[timeline-dnd] hover snapshot", {
+      itemId: sourceItem.id,
+      originalStart: pointerDragState.originStartTime,
+      hoverSnapped: snappedMinutes,
+      hoverClamped: clampedMinutes,
+      targetChannelId,
+      targetLaneCategory,
+      visibleLaneX: context.visibleLaneX,
+      timelineContentX: context.timelineContentX,
+      adjustedX,
+    });
+  }
+
+  return {
+    lane,
+    context,
+    adjustedX,
+    preSnapMinutes,
+    snappedMinutes,
+    clampedMinutes,
+    finalMinutes,
+    finalStart,
+    targetChannelId,
+    targetLaneCategory,
+    targetLaneLabel,
+  };
+}
+
+function commitPointerDrag(event) {
+  if (!pointerDragState.active) return;
+
+  const item = state.items.find((entry) => entry.id === pointerDragState.itemId);
+  if (!item) {
+    cancelPointerDrag("missing item", event);
+    return;
+  }
+
+  const preview = pointerDragState.previewItem || item;
+  const sameLane =
+    pointerDragState.originChannelId === preview.channelId &&
+    pointerDragState.originCategory === preview.category;
+  const commitStartMinutes = getSafeStartMinutes(preview.start);
+  const commitTargetLaneLabel = pointerDragState.lastLaneEl
+    ? `${getChannelName(preview.channelId)} / ${preview.category}`
+    : pointerDragState.originLaneLabel;
+  const commitSnapshot = {
+    itemId: item.id,
+    itemTitle: item.title,
+    rawX: pointerDragState.lastTimelineContentX,
+    adjustedX: pointerDragState.lastAdjustedX,
+    preSnapMinutes: pointerDragState.lastPreSnapMinutes,
+    snappedMinutes: pointerDragState.lastSnappedMinutes,
+    clampedMinutes: pointerDragState.lastClampedMinutes,
+    targetChannelId: preview.channelId,
+    targetLaneCategory: preview.category,
+    targetLaneLabel: commitTargetLaneLabel,
+    sameLane,
+    newStartTime: preview.start,
+    newChannelId: preview.channelId,
+    newLaneCategory: preview.category,
+    dropFired: "yes",
+    dropCommitted: "yes",
+  };
+
+  dragState.commitSnapshot = {
+    source: "pointer",
+    dropFired: true,
+    dropCommitted: true,
+    itemId: item.id,
+    itemTitle: item.title,
+    originalStartMinutes: pointerDragState.originStartMinutes,
+    originalStartTime: pointerDragState.originStartTime,
+    timelineContentX: pointerDragState.lastTimelineContentX,
+    adjustedX: pointerDragState.lastAdjustedX,
+    preSnapMinutes: pointerDragState.lastPreSnapMinutes,
+    snappedMinutes: pointerDragState.lastSnappedMinutes,
+    clampedMinutes: pointerDragState.lastClampedMinutes,
+    targetChannelId: preview.channelId,
+    targetLaneCategory: preview.category,
+    targetLaneLabel: commitTargetLaneLabel,
+    sameLane,
+    targetDetail: describeTimelineNode(event?.target),
+    targetLabel: describeTimelineNode(event?.target),
+    currentTargetLabel: describeTimelineNode(event?.currentTarget),
+    closestLaneLabel: describeTimelineNode(pointerDragState.lastLaneEl),
+    oldStart: item.start,
+    oldChannelId: item.channelId,
+    oldLaneCategory: item.category,
+    newStartTime: preview.start,
+    newStartMinutes: commitStartMinutes,
+    newChannelId: preview.channelId,
+    newLaneCategory: preview.category,
+    stateUpdated: false,
+    renderReflected: false,
+    revertedAfterCommit: false,
+    renderedLeft: null,
+    renderVisibleTimeLabel: "-",
+    status: "commit-pending",
+  };
+
+  dragState.timingSnapshot.commit = {
+    itemId: item.id,
+    itemTitle: item.title,
+    rawX: pointerDragState.lastTimelineContentX,
+    adjustedX: pointerDragState.lastAdjustedX,
+    preSnapMinutes: pointerDragState.lastPreSnapMinutes,
+    snappedMinutes: pointerDragState.lastSnappedMinutes,
+    clampedMinutes: pointerDragState.lastClampedMinutes,
+    targetChannelId: preview.channelId,
+    targetLaneCategory: preview.category,
+    targetLaneLabel: commitTargetLaneLabel,
+    sameLane,
+    newStartTime: preview.start,
+    newChannelId: preview.channelId,
+    newLaneCategory: preview.category,
+  };
+  dragState.timingSnapshot.status = "committing";
+
+  console.log("[timeline-dnd] commit snapshot", {
+    itemId: item.id,
+    originalStart: pointerDragState.originStartTime,
+    hoverSnapped: dragState.timingSnapshot.hover?.snappedMinutes,
+    hoverClamped: dragState.timingSnapshot.hover?.clampedMinutes,
+    commitSnapped: commitSnapshot.snappedMinutes,
+    commitClamped: commitSnapshot.clampedMinutes,
+    finalSavedStart: preview.start,
+    revertedAfterCommit: "no",
+  });
+
+  console.log("[timeline-dnd] commit before update", {
+    itemId: item.id,
+    oldStart: item.start,
+    oldChannelId: item.channelId,
+    oldLaneCategory: item.category,
+    newStart: preview.start,
+    newChannelId: preview.channelId,
+    newLaneCategory: preview.category,
+  });
+
+  item.start = preview.start;
+  item.channelId = preview.channelId;
+  item.category = preview.category;
+  item.duration = preview.duration;
+  item.slot = preview.slot;
+
+  console.log("[timeline-dnd] commit after update", {
+    itemId: item.id,
+    newStart: item.start,
+    newStartMinutes: getSafeStartMinutes(item.start),
+    newChannelId: item.channelId,
+    newLaneCategory: item.category,
+  });
+
+  dragState.commitSnapshot.stateUpdated = true;
+  dragState.commitSnapshot.newStartMinutes = getSafeStartMinutes(item.start);
+  dragState.commitSnapshot.newStartTime = item.start;
+  dragState.commitSnapshot.newChannelId = item.channelId;
+  dragState.commitSnapshot.newLaneCategory = item.category;
+  dragState.commitSnapshot.status = "DROP FIRED AND COMMITTED";
+
+  persistAndRender();
+
+  const finalSavedItem = state.items.find((entry) => entry.id === item.id) || null;
+  const finalSavedStart = finalSavedItem?.start || item.start;
+  const finalSavedMinutes = finalSavedItem ? getSafeStartMinutes(finalSavedItem.start) : getSafeStartMinutes(item.start);
+  const finalRenderedLeft = finalSavedItem ? timelineMinutesToX(finalSavedMinutes) : timelineMinutesToX(getSafeStartMinutes(item.start));
+  const finalSavedMatchesCommit = finalSavedStart === preview.start;
+  const hoverMatchesCommit =
+    dragState.timingSnapshot.hover?.snappedMinutes === dragState.timingSnapshot.commit?.snappedMinutes &&
+    dragState.timingSnapshot.hover?.clampedMinutes === dragState.timingSnapshot.commit?.clampedMinutes;
+  const commitMatchesSaved = finalSavedStart === commitSnapshot.newStartTime;
+
+  dragState.timingSnapshot.final = {
+    itemId: item.id,
+    savedStart: finalSavedStart,
+    savedMinutes: finalSavedMinutes,
+    savedTimeLabel: finalSavedStart,
+    savedChannelId: finalSavedItem?.channelId || item.channelId,
+    savedLaneCategory: finalSavedItem?.category || item.category,
+    renderedLeft: finalRenderedLeft,
+    visibleTimeLabel: finalSavedStart,
+  };
+  dragState.timingSnapshot.matches = {
+    hoverToCommit: hoverMatchesCommit ? "yes" : "no",
+    commitToSaved: commitMatchesSaved ? "yes" : "no",
+    savedToRecheck: finalSavedMatchesCommit ? "yes" : "no",
+  };
+  dragState.timingSnapshot.postRender = {
+    itemId: item.id,
+    expectedCommittedStart: preview.start,
+    postCheckStart: finalSavedStart,
+    revertedAfterCommit: finalSavedMatchesCommit ? "no" : "yes",
+  };
+  dragState.timingSnapshot.revertedAfterCommit = finalSavedMatchesCommit ? "no" : "yes";
+  dragState.timingSnapshot.status = finalSavedMatchesCommit ? "saved" : "reverted";
+
+  console.log("[timeline-dnd] final saved snapshot", {
+    itemId: item.id,
+    originalStart: pointerDragState.originStartTime,
+    hoverSnapped: dragState.timingSnapshot.hover?.snappedMinutes,
+    hoverClamped: dragState.timingSnapshot.hover?.clampedMinutes,
+    commitSnapped: dragState.timingSnapshot.commit?.snappedMinutes,
+    commitClamped: dragState.timingSnapshot.commit?.clampedMinutes,
+    finalSavedStart,
+    finalSavedMinutes,
+    revertedAfterCommit: finalSavedMatchesCommit ? "no" : "yes",
+  });
+
+  console.log("[timeline-dnd] post-render recheck", {
+    itemId: item.id,
+    expectedCommittedStart: preview.start,
+    currentStart: finalSavedStart,
+    currentStartMinutes: finalSavedMinutes,
+    currentChannelId: finalSavedItem?.channelId || item.channelId,
+    currentLaneCategory: finalSavedItem?.category || item.category,
+    renderedLeft: finalRenderedLeft,
+    visibleTimeLabel: finalSavedStart,
+    revertedAfterCommit: finalSavedMatchesCommit ? "no" : "yes",
+  });
+
+  dragState.commitSnapshot.renderReflected = finalSavedMatchesCommit;
+  dragState.commitSnapshot.renderedLeft = finalRenderedLeft;
+  dragState.commitSnapshot.renderVisibleTimeLabel = finalSavedStart;
+  dragState.commitSnapshot.revertedAfterCommit = finalSavedMatchesCommit ? false : true;
+  dragState.commitSnapshot.postCheckStart = finalSavedStart;
+  dragState.commitSnapshot.postCheckMinutes = finalSavedMinutes;
+  dragState.commitSnapshot.postCheckTargetChannelId = finalSavedItem?.channelId || item.channelId;
+  dragState.commitSnapshot.postCheckTargetLaneCategory = finalSavedItem?.category || item.category;
+  dragState.commitSnapshot.postCheckMatched = finalSavedMatchesCommit;
+
+  dragState.lastDropCommitted = true;
+
+  if (DEBUG_TIMELINE_DND) {
+    const snapshot = buildTimelineDebugSnapshot("pointerup", event, pointerDragState.lastLaneEl || event.currentTarget, item, {
+      timelineContentX: pointerDragState.lastTimelineContentX,
+      adjustedX: pointerDragState.lastAdjustedX,
+      preSnapMinutes: pointerDragState.lastPreSnapMinutes,
+      snappedMinutes: pointerDragState.lastSnappedMinutes,
+      clampedMinutes: pointerDragState.lastClampedMinutes,
+      finalMinutes: finalSavedMinutes,
+      finalTime: finalSavedStart,
+      renderedLeft: finalRenderedLeft,
+      dropStatus: "POINTER DROP COMMITTED",
+      dropFired: "yes",
+      dropCommitted: "yes",
+      dropAllowed: "yes",
+      dropBlockedReason: "-",
+      commitSnapshot: dragState.commitSnapshot,
+      timingSnapshot: dragState.timingSnapshot,
+      targetLabel: describeTimelineNode(event.target),
+      currentTargetLabel: describeTimelineNode(event.currentTarget),
+      closestLaneLabel: describeTimelineNode(pointerDragState.lastLaneEl),
+      renderNote: "pointer commit complete",
+    });
+    updateTimelineDebugPanel(snapshot);
+  }
+
+  clearPointerDragState();
+  renderPlanner();
+}
+
+function cancelPointerDrag(reason, event) {
+  if (DEBUG_TIMELINE_DND) {
+    console.log("[timeline-dnd] pointer drag canceled", {
+      itemId: pointerDragState.itemId,
+      reason,
+      originalStart: pointerDragState.originStartTime,
+    });
+  }
+  clearPointerDragState();
+  dragState.timingSnapshot = dragState.timingSnapshot || {};
+  dragState.timingSnapshot.status = "canceled";
+  dragState.timingSnapshot.revertedAfterCommit = "no";
+  if (event) {
+    event.preventDefault();
+  }
+  renderPlanner();
+}
+
+function clearPointerDragState() {
+  pointerDragState.active = false;
+  pointerDragState.itemId = null;
+  pointerDragState.pointerId = null;
+  pointerDragState.originLaneEl = null;
+  pointerDragState.originChannelId = null;
+  pointerDragState.originCategory = null;
+  pointerDragState.originLaneLabel = "-";
+  pointerDragState.originStartMinutes = null;
+  pointerDragState.originStartTime = "-";
+  pointerDragState.originItemSnapshot = null;
+  pointerDragState.pointerOffsetX = 0;
+  pointerDragState.pointerOffsetY = 0;
+  pointerDragState.lastClientX = null;
+  pointerDragState.lastClientY = null;
+  pointerDragState.lastLaneEl = null;
+  pointerDragState.lastChannelId = null;
+  pointerDragState.lastCategory = null;
+  pointerDragState.lastVisibleLaneX = null;
+  pointerDragState.lastTimelineContentX = null;
+  pointerDragState.lastAdjustedX = null;
+  pointerDragState.lastPreSnapMinutes = null;
+  pointerDragState.lastSnappedMinutes = null;
+  pointerDragState.lastClampedMinutes = null;
+  pointerDragState.previewItem = null;
+  pointerDragState.pendingFrame = false;
+  if (pointerDragState.rafId) {
+    window.cancelAnimationFrame(pointerDragState.rafId);
+    pointerDragState.rafId = 0;
+  }
+  document.body.classList.remove("is-pointer-dragging");
+  dragState.itemId = null;
+  dragState.pointerOffsetX = 0;
+  dragState.lastClientX = null;
+  dragState.lastTimelineX = null;
+  dragState.draggedItemSnapshot = null;
+  dragState.dropAllowed = "unknown";
+  dragState.dropBlockedReason = "-";
+  dragState.lastEventType = null;
+  dragState.lastTargetLabel = null;
+  dragState.lastCurrentTargetLabel = null;
+  dragState.lastClosestLaneLabel = null;
 }
 
 function renderTable() {
