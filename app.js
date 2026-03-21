@@ -22,6 +22,9 @@ const IMPORTANCE_COLORS = {
   Medium: "#57d6b9",
   Low: "#7d91b9",
 };
+const NETWORK_TYPES = ["standard", "web", "guide", "loop", "streaming"];
+const BREAK_STRATEGIES = ["standard", "end", "center"];
+const SCHEDULE_INCREMENTS = [5, 10, 15, 30, 60];
 const WORKSPACE_META = {
   schedule: {
     eyebrow: "Planning Board",
@@ -101,6 +104,24 @@ const elements = {
   channelName: document.getElementById("channelName"),
   channelGroup: document.getElementById("channelGroup"),
   channelTagline: document.getElementById("channelTagline"),
+  channelNumber: document.getElementById("channelNumber"),
+  networkType: document.getElementById("networkType"),
+  scheduleIncrement: document.getElementById("scheduleIncrement"),
+  breakStrategy: document.getElementById("breakStrategy"),
+  commercialFree: document.getElementById("commercialFree"),
+  breakDuration: document.getElementById("breakDuration"),
+  contentDir: document.getElementById("contentDir"),
+  commercialDir: document.getElementById("commercialDir"),
+  bumpDir: document.getElementById("bumpDir"),
+  clipShows: document.getElementById("clipShows"),
+  signOffVideo: document.getElementById("signOffVideo"),
+  offAirVideo: document.getElementById("offAirVideo"),
+  standbyImage: document.getElementById("standbyImage"),
+  beRightBackMedia: document.getElementById("beRightBackMedia"),
+  logoDir: document.getElementById("logoDir"),
+  showLogo: document.getElementById("showLogo"),
+  defaultLogo: document.getElementById("defaultLogo"),
+  logoPermanent: document.getElementById("logoPermanent"),
   channelMultiLogoMode: document.getElementById("channelMultiLogoMode"),
   channelMultiLogoPanel: document.getElementById("channelMultiLogoPanel"),
   channelMultiLogoProfile: document.getElementById("channelMultiLogoProfile"),
@@ -221,15 +242,49 @@ function init() {
   render();
 }
 
-function createChannel(name, group, color, tagline, multiLogoMode = false, multiLogoProfile = "") {
+function createChannel(nameOrConfig, group, color, tagline, multiLogoMode = false, multiLogoProfile = "") {
+  const config =
+    typeof nameOrConfig === "object" && nameOrConfig !== null
+      ? nameOrConfig
+      : {
+          name: nameOrConfig,
+          group,
+          color,
+          tagline,
+          multiLogoMode,
+          multiLogoProfile,
+        };
+
+  const name = String(config.name || "").trim() || "Untitled channel";
+  const channelNumber = parsePositiveInteger(config.channelNumber);
+  const pathBase = getChannelConfigBase(name, channelNumber || 1);
+
   return {
     id: crypto.randomUUID(),
     name,
-    group,
-    color,
-    tagline,
-    multiLogoMode,
-    multiLogoProfile,
+    group: String(config.group || "").trim(),
+    color: config.color || "#7d91b9",
+    tagline: String(config.tagline || "").trim(),
+    channelNumber: channelNumber || null,
+    networkType: NETWORK_TYPES.includes(config.networkType) ? config.networkType : "standard",
+    scheduleIncrement: parsePositiveInteger(config.scheduleIncrement) || 30,
+    breakStrategy: BREAK_STRATEGIES.includes(config.breakStrategy) ? config.breakStrategy : "standard",
+    commercialFree: typeof config.commercialFree === "boolean" ? config.commercialFree : false,
+    breakDuration: parsePositiveInteger(config.breakDuration) ?? 0,
+    contentDir: String(config.contentDir || "").trim() || `catalog/${pathBase}`,
+    commercialDir: String(config.commercialDir || "").trim() || `commercial/${pathBase}`,
+    bumpDir: String(config.bumpDir || "").trim() || `bump/${pathBase}`,
+    clipShows: normalizeClipShowList(config.clipShows),
+    signOffVideo: String(config.signOffVideo || "").trim() || "runtime/signoff.mp4",
+    offAirVideo: String(config.offAirVideo || "").trim() || "runtime/off_air_pattern.mp4",
+    standbyImage: String(config.standbyImage || "").trim() || "runtime/standby.png",
+    beRightBackMedia: String(config.beRightBackMedia || "").trim() || "runtime/brb.png",
+    logoDir: String(config.logoDir || "").trim() || `logos/${pathBase}`,
+    showLogo: typeof config.showLogo === "boolean" ? config.showLogo : true,
+    defaultLogo: String(config.defaultLogo || "").trim() || `${pathBase}.png`,
+    logoPermanent: typeof config.logoPermanent === "boolean" ? config.logoPermanent : true,
+    multiLogoMode: Boolean(config.multiLogoMode),
+    multiLogoProfile: String(config.multiLogoProfile || "").trim(),
   };
 }
 
@@ -277,7 +332,7 @@ function createItem(
 }
 
 function createDefaultState() {
-  const channels = structuredClone(DEFAULT_CHANNELS);
+  const channels = normalizeChannels(structuredClone(DEFAULT_CHANNELS));
   return {
     workspace: "schedule",
     viewMode: "timeline",
@@ -301,6 +356,109 @@ function createDefaultState() {
   };
 }
 
+function normalizeChannels(channels = []) {
+  return channels.map((channel, index) => normalizeChannel(channel, index));
+}
+
+function normalizeChannel(channel = {}, index = 0) {
+  const name = String(channel.name || "").trim() || "Untitled channel";
+  const providedNumber = parsePositiveInteger(channel.channelNumber ?? channel.channel_number);
+  const channelNumber = providedNumber || index + 1;
+  const pathBase = getChannelConfigBase(name, channelNumber);
+  return {
+    id: channel.id || crypto.randomUUID(),
+    name,
+    group: String(channel.group || "").trim(),
+    color: channel.color || "#7d91b9",
+    tagline: String(channel.tagline || "").trim(),
+    channelNumber,
+    networkType: NETWORK_TYPES.includes(channel.networkType || channel.network_type) ? channel.networkType || channel.network_type : "standard",
+    scheduleIncrement: parsePositiveInteger(channel.scheduleIncrement ?? channel.schedule_increment) || 30,
+    breakStrategy: BREAK_STRATEGIES.includes(channel.breakStrategy || channel.break_strategy)
+      ? channel.breakStrategy || channel.break_strategy
+      : "standard",
+    commercialFree:
+      typeof channel.commercialFree === "boolean"
+        ? channel.commercialFree
+        : typeof channel.commercial_free === "boolean"
+          ? channel.commercial_free
+          : false,
+    breakDuration: parsePositiveInteger(channel.breakDuration ?? channel.break_duration) ?? 0,
+    contentDir: String(channel.contentDir || channel.content_dir || "").trim() || `catalog/${pathBase}`,
+    commercialDir: String(channel.commercialDir || channel.commercial_dir || "").trim() || `commercial/${pathBase}`,
+    bumpDir: String(channel.bumpDir || channel.bump_dir || "").trim() || `bump/${pathBase}`,
+    clipShows: normalizeClipShowList(channel.clipShows ?? channel.clip_shows),
+    signOffVideo: String(channel.signOffVideo || channel.sign_off_video || "").trim() || "runtime/signoff.mp4",
+    offAirVideo: String(channel.offAirVideo || channel.off_air_video || "").trim() || "runtime/off_air_pattern.mp4",
+    standbyImage: String(channel.standbyImage || channel.standby_image || "").trim() || "runtime/standby.png",
+    beRightBackMedia:
+      String(channel.beRightBackMedia || channel.be_right_back_media || "").trim() || "runtime/brb.png",
+    logoDir: String(channel.logoDir || channel.logo_dir || "").trim() || `logos/${pathBase}`,
+    showLogo:
+      typeof channel.showLogo === "boolean"
+        ? channel.showLogo
+        : typeof channel.show_logo === "boolean"
+          ? channel.show_logo
+          : true,
+    defaultLogo: String(channel.defaultLogo || channel.default_logo || "").trim() || `${pathBase}.png`,
+    logoPermanent:
+      typeof channel.logoPermanent === "boolean"
+        ? channel.logoPermanent
+        : typeof channel.logo_permanent === "boolean"
+          ? channel.logo_permanent
+          : true,
+    multiLogoMode:
+      typeof channel.multiLogoMode === "boolean"
+        ? channel.multiLogoMode
+        : typeof channel.multi_logo === "string"
+          ? Boolean(channel.multi_logo.trim())
+          : false,
+    multiLogoProfile: String(channel.multiLogoProfile || channel.multi_logo || "").trim(),
+  };
+}
+
+function getNextAvailableChannelNumber(channels = state.channels, excludeId = null) {
+  const used = new Set(
+    channels
+      .filter((channel) => channel.id !== excludeId)
+      .map((channel) => parsePositiveInteger(channel.channelNumber))
+      .filter((value) => Number.isInteger(value)),
+  );
+  let candidate = 1;
+  while (used.has(candidate)) candidate += 1;
+  return candidate;
+}
+
+function parsePositiveInteger(value) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function getChannelConfigBase(name, channelNumber) {
+  const safeNumber = parsePositiveInteger(channelNumber) || 1;
+  const safeName = slugify(name || "channel") || "channel";
+  return `ch${String(safeNumber).padStart(2, "0")}_${safeName}`;
+}
+
+function normalizeClipShowList(value) {
+  if (Array.isArray(value)) {
+    return uniqueValues(value.map((entry) => String(entry || "").trim()).filter(Boolean));
+  }
+  if (typeof value === "string") {
+    return uniqueValues(
+      value
+        .split(/[\n,]/)
+        .map((entry) => String(entry || "").trim())
+        .filter(Boolean),
+    );
+  }
+  return [];
+}
+
+function formatClipShowList(value) {
+  return normalizeClipShowList(value).join(", ");
+}
+
 function populateStaticSelects() {
   DAY_NAMES.forEach((day) => {
     elements.dayFilter.appendChild(createOption(day, day));
@@ -309,6 +467,24 @@ function populateStaticSelects() {
 
   CATEGORY_OPTIONS.forEach((category) => {
     elements.category.appendChild(createOption(category, category));
+  });
+
+  NETWORK_TYPES.forEach((networkType) => {
+    if (elements.networkType) {
+      elements.networkType.appendChild(createOption(networkType, networkType));
+    }
+  });
+
+  BREAK_STRATEGIES.forEach((strategy) => {
+    if (elements.breakStrategy) {
+      elements.breakStrategy.appendChild(createOption(strategy, strategy));
+    }
+  });
+
+  SCHEDULE_INCREMENTS.forEach((increment) => {
+    if (elements.scheduleIncrement) {
+      elements.scheduleIncrement.appendChild(createOption(String(increment), `${increment} min`));
+    }
   });
 }
 
@@ -371,6 +547,12 @@ function handleControlChange(event) {
 
 function handleWorkspaceChange(workspace) {
   state.workspace = normalizeWorkspace(workspace);
+  if (state.workspace === "review") {
+    state.viewMode = "table";
+  } else if (state.workspace === "schedule") {
+    state.viewMode = "timeline";
+  }
+  syncControls();
   persistAndRender();
 }
 
@@ -438,17 +620,7 @@ function handleItemSubmit(event) {
 
 function handleChannelSubmit(event) {
   event.preventDefault();
-  const multiLogoMode = Boolean(elements.channelMultiLogoMode.checked);
-  const multiLogoProfile = elements.channelMultiLogoProfile.value.trim();
-  const channel = {
-    id: elements.channelId.value || crypto.randomUUID(),
-    name: elements.channelName.value.trim(),
-    group: elements.channelGroup.value.trim(),
-    color: elements.channelColor.value,
-    tagline: elements.channelTagline.value.trim(),
-    multiLogoMode,
-    multiLogoProfile: multiLogoMode ? multiLogoProfile : "",
-  };
+  const channel = collectChannelFormState();
 
   const index = state.channels.findIndex((entry) => entry.id === channel.id);
   if (index >= 0) {
@@ -508,9 +680,8 @@ function resetItemForm() {
 function resetChannelForm() {
   elements.channelForm.reset();
   elements.channelId.value = "";
-  elements.channelColor.value = state.channels[0]?.color || "#ff8a5b";
-  elements.channelMultiLogoMode.checked = false;
-  elements.channelMultiLogoProfile.value = "";
+  const draft = buildDefaultChannelDraft();
+  applyChannelFormState(draft, true);
   syncChannelMultiLogoControls();
 }
 
@@ -1783,19 +1954,61 @@ function renderChannelList() {
   elements.channelList.innerHTML = "";
   state.channels.forEach((channel) => {
     const row = document.createElement("article");
-      row.className = "channel-card";
-      const multiLogoLabel = channel.multiLogoMode
-        ? `Multi-logo: ${channel.multiLogoProfile || "profile required"}`
-        : "Multi-logo: off";
-      row.innerHTML = `
-        <div class="channel-card-main">
-          <span class="channel-swatch" style="background:${channel.color}"></span>
-          <div>
-            <strong>${channel.name}</strong>
-            <p>${channel.group || "Ungrouped"} | ${channel.tagline || "No tagline set"} | ${multiLogoLabel}</p>
-          </div>
+    row.className = "channel-card";
+    const channelIssues = validateChannelConfig(channel, state.items, state.exportProfile, state.channels);
+    const configSummary = [
+      `#${String(parsePositiveInteger(channel.channelNumber) || 1).padStart(2, "0")}`,
+      channel.networkType || "standard",
+      `inc ${parsePositiveInteger(channel.scheduleIncrement) || 30}m`,
+      `break ${channel.breakStrategy || "standard"} / ${parsePositiveInteger(channel.breakDuration) || 0}m`,
+      channel.commercialFree ? "commercial-free" : "commercials on",
+      channel.showLogo ? "logo on" : "logo off",
+      channel.multiLogoMode ? `multi-logo ${channel.multiLogoProfile || "profile required"}` : "multi-logo off",
+    ].join(" | ");
+    const pathSummary = [
+      channel.contentDir || "-",
+      channel.commercialDir || "-",
+      channel.bumpDir || "-",
+    ].join(" | ");
+    const assetSummary = [
+      channel.signOffVideo || "sign-off default",
+      channel.offAirVideo || "off-air default",
+      channel.standbyImage || "standby default",
+    ].join(" | ");
+    const clipSummary = normalizeClipShowList(channel.clipShows).length
+      ? normalizeClipShowList(channel.clipShows).join(", ")
+      : "No clip shows";
+    row.innerHTML = `
+      <div class="channel-card-main">
+        <span class="channel-swatch" style="background:${channel.color}"></span>
+        <div class="channel-card-copy">
+          <strong>${channel.name}</strong>
+          <p>${channel.group || "Ungrouped"} | ${channel.tagline || "No tagline set"}</p>
+          <div class="channel-card-meta">${configSummary}</div>
+          <div class="channel-card-paths">${pathSummary}</div>
+          <div class="channel-card-assets">${assetSummary}</div>
+          <div class="channel-card-clips">Clip shows: ${clipSummary}</div>
         </div>
-      `;
+      </div>
+      <div class="channel-card-status"></div>
+    `;
+
+    const status = row.querySelector(".channel-card-status");
+    const statusPill = document.createElement("span");
+    statusPill.className = `status-pill ${channelIssues.some((issue) => issue.severity === "blocker") ? "blocked" : channelIssues.some((issue) => issue.severity === "warning") ? "warning" : "ok"}`;
+    statusPill.textContent = channelIssues.some((issue) => issue.severity === "blocker")
+      ? "Config blocked"
+      : channelIssues.some((issue) => issue.severity === "warning")
+        ? "Config warning"
+        : "Config ready";
+    status.appendChild(statusPill);
+
+    if (channelIssues.length > 0) {
+      const issueList = document.createElement("div");
+      issueList.className = "channel-card-issues";
+      issueList.innerHTML = channelIssues.slice(0, 3).map((issue) => `<div class="validation-line">${issue.message}</div>`).join("");
+      status.appendChild(issueList);
+    }
 
     const actions = document.createElement("div");
     actions.className = "card-actions";
@@ -2015,14 +2228,101 @@ function hydrateChannelForm(channelId) {
   const channel = state.channels.find((entry) => entry.id === channelId);
   if (!channel) return;
 
-  elements.channelId.value = channel.id;
-  elements.channelName.value = channel.name;
-  elements.channelGroup.value = channel.group || "";
-  elements.channelTagline.value = channel.tagline || "";
-  elements.channelColor.value = channel.color;
-  elements.channelMultiLogoMode.checked = Boolean(channel.multiLogoMode);
-  elements.channelMultiLogoProfile.value = channel.multiLogoProfile || "";
+  applyChannelFormState(channel, false);
   syncChannelMultiLogoControls();
+}
+
+function buildDefaultChannelDraft() {
+  const channelNumber = getNextAvailableChannelNumber();
+  const base = getChannelConfigBase("Channel", channelNumber);
+  return {
+    id: "",
+    name: "",
+    group: "",
+    color: state.channels[0]?.color || "#ff8a5b",
+    tagline: "",
+    channelNumber,
+    networkType: "standard",
+    scheduleIncrement: 30,
+    breakStrategy: "standard",
+    commercialFree: false,
+    breakDuration: 0,
+    contentDir: `catalog/${base}`,
+    commercialDir: `commercial/${base}`,
+    bumpDir: `bump/${base}`,
+    clipShows: [],
+    signOffVideo: "runtime/signoff.mp4",
+    offAirVideo: "runtime/off_air_pattern.mp4",
+    standbyImage: "runtime/standby.png",
+    beRightBackMedia: "runtime/brb.png",
+    logoDir: `logos/${base}`,
+    showLogo: true,
+    defaultLogo: `${base}.png`,
+    logoPermanent: true,
+    multiLogoMode: false,
+    multiLogoProfile: "",
+  };
+}
+
+function applyChannelFormState(channel, preserveBlankName = false) {
+  const normalized = normalizeChannel(channel, 0);
+  elements.channelId.value = normalized.id || "";
+  elements.channelName.value = preserveBlankName ? String(channel?.name || "") : normalized.name || "";
+  elements.channelGroup.value = normalized.group || "";
+  elements.channelTagline.value = normalized.tagline || "";
+  elements.channelNumber.value = String(normalized.channelNumber || "");
+  elements.channelColor.value = normalized.color || "#ff8a5b";
+  elements.networkType.value = normalized.networkType || "standard";
+  elements.scheduleIncrement.value = String(normalized.scheduleIncrement || 30);
+  elements.breakStrategy.value = normalized.breakStrategy || "standard";
+  elements.commercialFree.checked = Boolean(normalized.commercialFree);
+  elements.breakDuration.value = String(normalized.breakDuration ?? 0);
+  elements.contentDir.value = normalized.contentDir || "";
+  elements.commercialDir.value = normalized.commercialDir || "";
+  elements.bumpDir.value = normalized.bumpDir || "";
+  elements.clipShows.value = formatClipShowList(normalized.clipShows);
+  elements.signOffVideo.value = normalized.signOffVideo || "";
+  elements.offAirVideo.value = normalized.offAirVideo || "";
+  elements.standbyImage.value = normalized.standbyImage || "";
+  elements.beRightBackMedia.value = normalized.beRightBackMedia || "";
+  elements.logoDir.value = normalized.logoDir || "";
+  elements.showLogo.checked = Boolean(normalized.showLogo);
+  elements.defaultLogo.value = normalized.defaultLogo || "";
+  elements.logoPermanent.checked = Boolean(normalized.logoPermanent);
+  elements.channelMultiLogoMode.checked = Boolean(normalized.multiLogoMode);
+  elements.channelMultiLogoProfile.value = normalized.multiLogoProfile || "";
+}
+
+function collectChannelFormState() {
+  const multiLogoMode = Boolean(elements.channelMultiLogoMode.checked);
+  const logoDir = String(elements.logoDir?.value || "").trim();
+  return normalizeChannel({
+    id: elements.channelId.value || crypto.randomUUID(),
+    name: elements.channelName.value.trim(),
+    group: elements.channelGroup.value.trim(),
+    color: elements.channelColor.value,
+    tagline: elements.channelTagline.value.trim(),
+    channelNumber: parsePositiveInteger(elements.channelNumber.value),
+    networkType: elements.networkType.value,
+    scheduleIncrement: parsePositiveInteger(elements.scheduleIncrement.value),
+    breakStrategy: elements.breakStrategy.value,
+    commercialFree: Boolean(elements.commercialFree.checked),
+    breakDuration: parsePositiveInteger(elements.breakDuration.value) ?? 0,
+    contentDir: elements.contentDir.value.trim(),
+    commercialDir: elements.commercialDir.value.trim(),
+    bumpDir: elements.bumpDir.value.trim(),
+    clipShows: normalizeClipShowList(elements.clipShows.value),
+    signOffVideo: elements.signOffVideo.value.trim(),
+    offAirVideo: elements.offAirVideo.value.trim(),
+    standbyImage: elements.standbyImage.value.trim(),
+    beRightBackMedia: elements.beRightBackMedia.value.trim(),
+    logoDir,
+    showLogo: Boolean(elements.showLogo.checked),
+    defaultLogo: elements.defaultLogo.value.trim(),
+    logoPermanent: Boolean(elements.logoPermanent.checked),
+    multiLogoMode,
+    multiLogoProfile: multiLogoMode ? elements.channelMultiLogoProfile.value.trim() : "",
+  });
 }
 
 function deleteItem(itemId) {
@@ -2423,24 +2723,143 @@ function validateSchedule(profile = state.exportProfile) {
   };
 }
 
+function validateChannelConfig(channel, scheduleItems = state.items, profile = state.exportProfile, channels = state.channels) {
+  const issues = [];
+  const title = channel.name || "Untitled channel";
+  const channelNumber = parsePositiveInteger(channel.channelNumber);
+  const networkType = String(channel.networkType || "").trim();
+  const scheduleIncrement = parsePositiveInteger(channel.scheduleIncrement);
+  const breakStrategy = String(channel.breakStrategy || "").trim();
+  const breakDuration = Number(channel.breakDuration);
+  const commercialFree = typeof channel.commercialFree === "boolean" ? channel.commercialFree : null;
+  const clipShows = normalizeClipShowList(channel.clipShows);
+  const commercialCount = scheduleItems.filter(
+    (item) => item.channelId === channel.id && ITEM_TYPE_META[item.itemType]?.commercial,
+  ).length;
+  const duplicateNumber = channelNumber
+    ? channels.some((entry) => entry.id !== channel.id && parsePositiveInteger(entry.channelNumber) === channelNumber)
+    : false;
+
+  if (!channelNumber) {
+    issues.push({
+      severity: "blocker",
+      code: "channel-number",
+      message: "Channel number must be a positive integer.",
+    });
+  } else if (duplicateNumber) {
+    issues.push({
+      severity: "blocker",
+      code: "channel-number-duplicate",
+      message: `Channel number ${channelNumber} is already used by another channel.`,
+    });
+  }
+
+  if (!NETWORK_TYPES.includes(networkType)) {
+    issues.push({
+      severity: "blocker",
+      code: "network-type",
+      message: "Network type must be standard, web, guide, loop, or streaming.",
+    });
+  }
+
+  if (!scheduleIncrement || !Number.isInteger(scheduleIncrement)) {
+    issues.push({
+      severity: "blocker",
+      code: "schedule-increment",
+      message: "Schedule increment must be a positive whole number.",
+    });
+  }
+
+  if (!BREAK_STRATEGIES.includes(breakStrategy)) {
+    issues.push({
+      severity: "blocker",
+      code: "break-strategy",
+      message: "Break strategy must be standard, end, or center.",
+    });
+  }
+
+  if (commercialFree === null) {
+    issues.push({
+      severity: "blocker",
+      code: "commercial-free",
+      message: "Commercial free must be set to yes or no.",
+    });
+  }
+
+  if (!Number.isInteger(breakDuration) || breakDuration < 0) {
+    issues.push({
+      severity: "blocker",
+      code: "break-duration",
+      message: "Break duration must be zero or a positive whole number.",
+    });
+  }
+
+  if (clipShows.some((entry) => !entry)) {
+    issues.push({
+      severity: "warning",
+      code: "clip-shows",
+      message: "Clip shows should not contain blank entries.",
+    });
+  }
+
+  if (commercialCount > 0 && commercialFree) {
+    issues.push({
+      severity: "warning",
+      code: "commercial-free-mismatch",
+      message: "Commercial items exist on this channel, but commercial_free is set to yes.",
+    });
+  }
+
+  if (commercialCount > 0 && breakDuration === 0) {
+    issues.push({
+      severity: "warning",
+      code: "break-duration-empty",
+      message: "Commercial items exist, but break_duration is still 0.",
+    });
+  }
+
+  if (commercialCount > 0 && breakStrategy === "end") {
+    issues.push({
+      severity: "warning",
+      code: "break-strategy-note",
+      message: "This channel uses end breaks. Check that this matches the channel's real commercial pattern.",
+    });
+  }
+
+  if (channel.multiLogoMode && !String(channel.multiLogoProfile || "").trim()) {
+    issues.push({
+      severity: "blocker",
+      code: "multi-logo-profile",
+      message: "Multi-logo mode is on, but no profile name is set.",
+    });
+  }
+
+  return issues;
+}
+
 function validateFs42NativeExport() {
   const scheduleValidation = validateSchedule("fs42-native");
-  const nativeErrors = [];
+  const nativeBlockers = [];
+  const nativeWarnings = [];
 
   state.channels.forEach((channel, index) => {
-    const channelNumber = index + 1;
+    const channelNumber = parsePositiveInteger(channel.channelNumber) || index + 1;
     const channelItems = state.items.filter((item) => item.channelId === channel.id);
-    if (channel.multiLogoMode && !String(channel.multiLogoProfile || "").trim()) {
-      nativeErrors.push({
+    const channelIssues = validateChannelConfig(channel, channelItems, "fs42-native", state.channels);
+    channelIssues.forEach((issue) => {
+      const payload = {
+        ...issue,
         title: channel.name || `Channel ${channelNumber}`,
-        message: "multi_logo profile name is required when multi-logo mode is on.",
         channelId: channel.id,
-      });
-    }
-    const payload = buildFs42NativeExportPayload(channel, channelItems, channelNumber);
+      };
+      if (issue.severity === "warning") nativeWarnings.push(payload);
+      else nativeBlockers.push(payload);
+    });
+
+    const payload = buildFs42NativeChannelJson(channel, channelItems, channelNumber);
     const issues = validateFs42NativePayload(payload, channel, channelNumber);
     issues.forEach((issue) => {
-      nativeErrors.push({
+      nativeBlockers.push({
         ...issue,
         itemId: issue.itemId || channel.id,
         title: issue.title || channel.name || `Channel ${channelNumber}`,
@@ -2449,8 +2868,8 @@ function validateFs42NativeExport() {
     });
   });
 
-  const blockers = [...scheduleValidation.blockers, ...nativeErrors];
-  const warnings = scheduleValidation.warnings;
+  const blockers = [...scheduleValidation.blockers, ...nativeBlockers];
+  const warnings = [...scheduleValidation.warnings, ...nativeWarnings];
 
   return {
     profile: "fs42-native",
@@ -3669,8 +4088,8 @@ function exportInternalSchedulerJson() {
 function exportFs42NativeStationConfigs() {
   state.channels.forEach((channel, index) => {
     const channelItems = state.items.filter((item) => item.channelId === channel.id);
-    const channelNumber = index + 1;
-    const payload = buildFs42NativeExportPayload(channel, channelItems, channelNumber);
+    const channelNumber = parsePositiveInteger(channel.channelNumber) || index + 1;
+    const payload = buildFs42NativeChannelJson(channel, channelItems, channelNumber);
     const baseName = getFs42NativeFileBase(channel, channelNumber);
 
     window.setTimeout(() => {
@@ -3679,7 +4098,7 @@ function exportFs42NativeStationConfigs() {
   });
 }
 
-function buildFs42NativeExportPayload(channel, channelItems, channelNumber) {
+function buildFs42NativeChannelJson(channel, channelItems, channelNumber) {
   return {
     station_conf: buildFs42NativeStationConfig(channel, channelItems, channelNumber),
   };
@@ -3689,30 +4108,57 @@ function buildFs42NativeStationConfig(channel, channelItems, channelNumber) {
   const programmeItems = channelItems
     .filter((item) => !ITEM_TYPE_META[item.itemType]?.commercial)
     .sort(compareItems);
-  const commercialCount = channelItems.filter((item) => ITEM_TYPE_META[item.itemType]?.commercial).length;
   const daySchedules = buildFs42NativeDaySchedules(programmeItems);
   const baseName = getFs42NativeFileBase(channel, channelNumber);
+  const resolved = resolveFs42NativeChannelConfig(channel, baseName);
 
   return {
     network_name: channel.name,
-    channel_number: channelNumber,
-    network_type: "standard",
-    content_dir: `catalog/${baseName}`,
-    commercial_dir: `commercial/${baseName}`,
-    bump_dir: `bump/${baseName}`,
-    schedule_increment: 30,
-    break_strategy: commercialCount > 0 ? "standard" : "end",
-    commercial_free: commercialCount === 0,
-    sign_off_video: "runtime/signoff.mp4",
-    off_air_video: "runtime/off_air_pattern.mp4",
-    standby_image: "runtime/standby.png",
-    be_right_back_media: "runtime/brb.png",
-    logo_dir: `logos/${baseName}`,
-    show_logo: true,
-    default_logo: `${baseName}.png`,
-    logo_permanent: true,
-    multi_logo: channel.multiLogoMode ? String(channel.multiLogoProfile || "").trim() : "",
+    channel_number: resolved.channelNumber,
+    network_type: resolved.networkType,
+    content_dir: resolved.contentDir,
+    commercial_dir: resolved.commercialDir,
+    bump_dir: resolved.bumpDir,
+    schedule_increment: resolved.scheduleIncrement,
+    break_strategy: resolved.breakStrategy,
+    commercial_free: resolved.commercialFree,
+    break_duration: resolved.breakDuration,
+    sign_off_video: resolved.signOffVideo,
+    off_air_video: resolved.offAirVideo,
+    standby_image: resolved.standbyImage,
+    be_right_back_media: resolved.beRightBackMedia,
+    logo_dir: resolved.logoDir,
+    show_logo: resolved.showLogo,
+    default_logo: resolved.defaultLogo,
+    logo_permanent: resolved.logoPermanent,
+    multi_logo: resolved.multiLogo,
+    clip_shows: resolved.clipShows,
     ...daySchedules,
+  };
+}
+
+function resolveFs42NativeChannelConfig(channel, baseName) {
+  const channelNumber = parsePositiveInteger(channel.channelNumber) || 1;
+  return {
+    channelNumber,
+    networkType: NETWORK_TYPES.includes(channel.networkType) ? channel.networkType : "standard",
+    contentDir: String(channel.contentDir || "").trim() || `catalog/${baseName}`,
+    commercialDir: String(channel.commercialDir || "").trim() || `commercial/${baseName}`,
+    bumpDir: String(channel.bumpDir || "").trim() || `bump/${baseName}`,
+    scheduleIncrement: parsePositiveInteger(channel.scheduleIncrement) || 30,
+    breakStrategy: BREAK_STRATEGIES.includes(channel.breakStrategy) ? channel.breakStrategy : "standard",
+    commercialFree: typeof channel.commercialFree === "boolean" ? channel.commercialFree : false,
+    breakDuration: parsePositiveInteger(channel.breakDuration) ?? 0,
+    signOffVideo: String(channel.signOffVideo || "").trim() || "runtime/signoff.mp4",
+    offAirVideo: String(channel.offAirVideo || "").trim() || "runtime/off_air_pattern.mp4",
+    standbyImage: String(channel.standbyImage || "").trim() || "runtime/standby.png",
+    beRightBackMedia: String(channel.beRightBackMedia || "").trim() || "runtime/brb.png",
+    logoDir: String(channel.logoDir || "").trim() || `logos/${baseName}`,
+    showLogo: typeof channel.showLogo === "boolean" ? channel.showLogo : true,
+    defaultLogo: String(channel.defaultLogo || "").trim() || `${baseName}.png`,
+    logoPermanent: typeof channel.logoPermanent === "boolean" ? channel.logoPermanent : true,
+    multiLogo: channel.multiLogoMode ? String(channel.multiLogoProfile || "").trim() : "",
+    clipShows: normalizeClipShowList(channel.clipShows),
   };
 }
 
@@ -3794,6 +4240,9 @@ function validateFs42NativePayload(payload, channel, channelNumber) {
   if (typeof stationConf.schedule_increment !== "number" || !Number.isInteger(stationConf.schedule_increment) || stationConf.schedule_increment <= 0) {
     issues.push({ title: baseTitle, message: "schedule_increment must be a positive integer." });
   }
+  if (!Number.isInteger(stationConf.break_duration) || stationConf.break_duration < 0) {
+    issues.push({ title: baseTitle, message: "break_duration must be zero or a positive integer." });
+  }
 
   requiredStringFields.forEach((field) => {
     if (typeof stationConf[field] !== "string" || !stationConf[field].trim()) {
@@ -3816,6 +4265,13 @@ function validateFs42NativePayload(payload, channel, channelNumber) {
       issues.push({ title: baseTitle, message: `${field} must be boolean when provided.` });
     }
   });
+  if ("clip_shows" in stationConf) {
+    if (!Array.isArray(stationConf.clip_shows)) {
+      issues.push({ title: baseTitle, message: "clip_shows must be an array when provided." });
+    } else if (stationConf.clip_shows.some((entry) => typeof entry !== "string" || !entry.trim())) {
+      issues.push({ title: baseTitle, message: "clip_shows may only contain non-empty strings." });
+    }
+  }
 
   if (stationConf.break_strategy === "none") {
     issues.push({ title: baseTitle, message: "break_strategy cannot be none." });
@@ -3913,21 +4369,13 @@ function normalizeState(parsed) {
       exportProfile: normalizeExportProfile(parsed.exportProfile),
       selectedDay: parsed.selectedDay || "Monday",
       selectedChannelId: parsed.selectedChannelId || "all",
-      channels: parsed.channels.map((channel) => ({
-        id: channel.id || crypto.randomUUID(),
-        name: channel.name,
-        group: channel.group || "",
-        color: channel.color || "#7d91b9",
-        tagline: channel.tagline || "",
-        multiLogoMode: Boolean(channel.multiLogoMode),
-        multiLogoProfile: channel.multiLogoProfile || "",
-      })),
+      channels: normalizeChannels(parsed.channels),
       items: seedStrategicOrders(normalizeItems(parsed.items || parsed.shows || [], parsed.channels)),
     };
   }
 
   if (Array.isArray(parsed.shows) && parsed.shows.length > 0) {
-    const channels = structuredClone(DEFAULT_CHANNELS);
+    const channels = normalizeChannels(structuredClone(DEFAULT_CHANNELS));
     const map = new Map(channels.map((channel) => [channel.name, channel.id]));
     return {
       workspace: normalizeWorkspace(parsed.workspace),

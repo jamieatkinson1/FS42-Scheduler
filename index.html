@@ -115,30 +115,166 @@
             <span>Name, group and colour your lineup</span>
           </div>
 
-          <form id="channelForm">
+          <form id="channelForm" class="channel-config-form">
             <input type="hidden" id="channelId" />
 
-            <label class="field">
-              <span>Channel name</span>
-              <input id="channelName" name="channelName" type="text" placeholder="FS42 Main" required />
-            </label>
+            <section class="channel-section">
+              <div class="section-heading compact">
+                <h3>Identity</h3>
+                <span>Network name, number, grouping, and visual identity</span>
+              </div>
 
-            <div class="split-fields">
-              <label class="field">
-                <span>Channel group</span>
-                <input id="channelGroup" name="channelGroup" type="text" placeholder="Entertainment" />
-              </label>
+              <div class="split-fields">
+                <label class="field">
+                  <span>Network name</span>
+                  <input id="channelName" name="channelName" type="text" placeholder="FS42 Main" required />
+                </label>
 
-              <label class="field">
-                <span>Colour</span>
-                <input id="channelColor" name="channelColor" type="color" value="#ff8a5b" />
-              </label>
-            </div>
+                <label class="field">
+                  <span>Channel number</span>
+                  <input id="channelNumber" name="channelNumber" type="number" min="1" step="1" placeholder="1" required />
+                </label>
+              </div>
+
+              <div class="split-fields">
+                <label class="field">
+                  <span>Channel group</span>
+                  <input id="channelGroup" name="channelGroup" type="text" placeholder="Entertainment" />
+                </label>
+
+                <label class="field">
+                  <span>Colour</span>
+                  <input id="channelColor" name="channelColor" type="color" value="#ff8a5b" />
+                </label>
+              </div>
 
               <label class="field">
                 <span>Tagline</span>
                 <input id="channelTagline" name="channelTagline" type="text" placeholder="Flagship entertainment feed" />
               </label>
+            </section>
+
+            <section class="channel-section">
+              <div class="section-heading compact">
+                <h3>Schedule behaviour</h3>
+                <span>Core timing and break behaviour for this channel</span>
+              </div>
+
+              <div class="split-fields">
+                <label class="field">
+                  <span>Network type</span>
+                  <select id="networkType" name="networkType"></select>
+                </label>
+
+                <label class="field">
+                  <span>Schedule increment (mins)</span>
+                  <select id="scheduleIncrement" name="scheduleIncrement"></select>
+                </label>
+              </div>
+
+              <div class="split-fields">
+                <label class="field">
+                  <span>Break strategy</span>
+                  <select id="breakStrategy" name="breakStrategy"></select>
+                </label>
+
+                <label class="field">
+                  <span>Break duration (mins)</span>
+                  <input id="breakDuration" name="breakDuration" type="number" min="0" step="5" placeholder="0" />
+                </label>
+              </div>
+
+              <label class="flag-toggle channel-toggle">
+                <input id="commercialFree" name="commercialFree" type="checkbox" />
+                <span>Commercial free</span>
+              </label>
+              <small class="field-help">If enabled, the exporter will keep the channel marked as commercial-free unless you change it.</small>
+            </section>
+
+            <section class="channel-section">
+              <div class="section-heading compact">
+                <h3>Content sources</h3>
+                <span>Directories and clip show references used by FS42</span>
+              </div>
+
+              <label class="field">
+                <span>Content directory</span>
+                <input id="contentDir" name="contentDir" type="text" placeholder="catalog/ch01_fs42_main" />
+              </label>
+
+              <label class="field">
+                <span>Commercial directory</span>
+                <input id="commercialDir" name="commercialDir" type="text" placeholder="commercial/ch01_fs42_main" />
+              </label>
+
+              <label class="field">
+                <span>Bump directory</span>
+                <input id="bumpDir" name="bumpDir" type="text" placeholder="bump/ch01_fs42_main" />
+              </label>
+
+              <label class="field">
+                <span>Clip shows</span>
+                <textarea id="clipShows" name="clipShows" rows="2" placeholder="Show A, Show B, Show C"></textarea>
+                <small class="field-help">Enter one or more clip show names separated by commas or line breaks.</small>
+              </label>
+            </section>
+
+            <section class="channel-section">
+              <div class="section-heading compact">
+                <h3>Runtime assets</h3>
+                <span>Media files used for sign-off, standby, and be-right-back states</span>
+              </div>
+
+              <label class="field">
+                <span>Sign-off video</span>
+                <input id="signOffVideo" name="signOffVideo" type="text" placeholder="runtime/signoff.mp4" />
+              </label>
+
+              <label class="field">
+                <span>Off-air video</span>
+                <input id="offAirVideo" name="offAirVideo" type="text" placeholder="runtime/off_air_pattern.mp4" />
+              </label>
+
+              <label class="field">
+                <span>Standby image</span>
+                <input id="standbyImage" name="standbyImage" type="text" placeholder="runtime/standby.png" />
+              </label>
+
+              <label class="field">
+                <span>Be-right-back media</span>
+                <input id="beRightBackMedia" name="beRightBackMedia" type="text" placeholder="runtime/brb.png" />
+              </label>
+            </section>
+
+            <section class="channel-section">
+              <div class="section-heading compact">
+                <h3>Advanced</h3>
+                <span>Logo configuration and multi-logo behaviour</span>
+              </div>
+
+              <div class="split-fields">
+                <label class="field">
+                  <span>Logo directory</span>
+                  <input id="logoDir" name="logoDir" type="text" placeholder="logos/ch01_fs42_main" />
+                </label>
+
+                <label class="field">
+                  <span>Default logo</span>
+                  <input id="defaultLogo" name="defaultLogo" type="text" placeholder="ch01_fs42_main.png" />
+                </label>
+              </div>
+
+              <div class="split-fields">
+                <label class="flag-toggle">
+                  <input id="showLogo" name="showLogo" type="checkbox" />
+                  <span>Show logo</span>
+                </label>
+
+                <label class="flag-toggle">
+                  <input id="logoPermanent" name="logoPermanent" type="checkbox" />
+                  <span>Logo permanent</span>
+                </label>
+              </div>
 
               <label class="flag-toggle channel-toggle">
                 <input id="channelMultiLogoMode" name="channelMultiLogoMode" type="checkbox" />
@@ -168,11 +304,12 @@
                   <option value="news_cycle"></option>
                 </datalist>
               </div>
+            </section>
 
-              <div class="button-row">
-                <button type="submit" class="button primary">Save Channel</button>
-                <button type="button" id="resetChannelForm" class="button secondary">Reset</button>
-              </div>
+            <div class="button-row channel-form-actions">
+              <button type="submit" class="button primary">Save Channel</button>
+              <button type="button" id="resetChannelForm" class="button secondary">Reset</button>
+            </div>
           </form>
 
           <div id="channelList" class="channel-list"></div>

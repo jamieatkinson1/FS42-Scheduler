@@ -49,7 +49,7 @@ body::before {
 }
 
 body[data-workspace="channels"] .app-shell {
-  grid-template-columns: 392px minmax(0, 1fr);
+  grid-template-columns: 420px minmax(0, 1fr);
 }
 
 .sidebar,
@@ -183,6 +183,34 @@ body[data-workspace="channels"] .app-shell {
   align-self: stretch;
 }
 
+.channel-config-form {
+  display: grid;
+  gap: 14px;
+}
+
+.channel-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(148, 172, 216, 0.09);
+}
+
+.channel-section .section-heading {
+  margin-bottom: 0;
+}
+
+.channel-section .section-heading h3 {
+  margin: 0;
+  font-size: 0.96rem;
+}
+
+.channel-form-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
 .workspace-schedule,
 .workspace-review,
 .workspace-channels,
@@ -213,6 +241,10 @@ body[data-workspace="review"] .channel-panel,
 body[data-workspace="review"] .help-panel,
 body[data-workspace="review"] .hero-export {
   display: none !important;
+}
+
+body[data-workspace="review"] .hero-legend {
+  display: grid;
 }
 
 body[data-workspace="export"] .controls-panel,
@@ -916,14 +948,61 @@ body.is-strategic-dragging {
 .channel-card-main {
   display: flex;
   gap: 12px;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .channel-swatch {
   width: 18px;
-  height: 56px;
+  height: 92px;
   border-radius: 999px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.channel-card-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.channel-card-copy strong {
+  font-size: 0.98rem;
+}
+
+.channel-card-copy p,
+.channel-card-meta,
+.channel-card-paths,
+.channel-card-assets,
+.channel-card-clips {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.channel-card-meta {
+  color: #d3def5;
+  font-weight: 700;
+}
+
+.channel-card-paths,
+.channel-card-assets,
+.channel-card-clips {
+  overflow-wrap: anywhere;
+}
+
+.channel-card-status {
+  display: grid;
+  gap: 8px;
+}
+
+.channel-card-issues {
+  display: grid;
+  gap: 4px;
+}
+
+.channel-card-issues .validation-line {
+  font-size: 0.74rem;
+  line-height: 1.4;
 }
 
 .show-card-title {
