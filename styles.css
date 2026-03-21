@@ -1,14 +1,14 @@
 :root {
   --bg: #09111e;
-  --panel: rgba(11, 19, 34, 0.9);
-  --panel-strong: rgba(14, 25, 43, 0.97);
-  --border: rgba(145, 165, 199, 0.16);
-  --border-strong: rgba(145, 165, 199, 0.28);
+  --panel: rgba(12, 20, 34, 0.94);
+  --panel-strong: rgba(14, 24, 40, 0.98);
+  --border: rgba(145, 165, 199, 0.12);
+  --border-strong: rgba(145, 165, 199, 0.22);
   --text: #edf3ff;
   --muted: #9aaed1;
   --warm: #ffb066;
   --accent: #79e0d8;
-  --shadow: 0 26px 80px rgba(0, 0, 0, 0.35);
+  --shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
   --hour-width: 72px;
   --day-width: 180px;
   --month-width: 240px;
@@ -24,8 +24,8 @@ body {
   font-family: Bahnschrift, "Trebuchet MS", "Segoe UI", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(61, 96, 183, 0.32), transparent 28%),
-    radial-gradient(circle at top right, rgba(255, 117, 85, 0.15), transparent 22%),
+    radial-gradient(circle at top left, rgba(61, 96, 183, 0.18), transparent 26%),
+    radial-gradient(circle at top right, rgba(255, 117, 85, 0.1), transparent 20%),
     linear-gradient(145deg, #08101d 0%, #0d1321 48%, #13233c 100%);
 }
 
@@ -35,9 +35,9 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 32px 32px;
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
   mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
 }
 
@@ -63,14 +63,14 @@ body[data-workspace="channels"] .app-shell {
 .brand-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(18px);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
 }
 
 .brand-card,
 .panel {
-  padding: 18px;
+  padding: 16px;
 }
 
 .brand-card h1,
@@ -138,10 +138,10 @@ body[data-workspace="channels"] .app-shell {
   display: grid;
   gap: 3px;
   width: 100%;
-  padding: 12px 13px;
-  border: 1px solid rgba(148, 172, 216, 0.16);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 11px 12px;
+  border: 1px solid rgba(148, 172, 216, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text);
   text-align: left;
   cursor: pointer;
@@ -164,9 +164,48 @@ body[data-workspace="channels"] .app-shell {
 }
 
 .workspace-button.is-active {
-  background: linear-gradient(135deg, rgba(121, 224, 216, 0.18), rgba(255, 146, 92, 0.12));
-  border-color: rgba(121, 224, 216, 0.46);
-  box-shadow: 0 0 0 1px rgba(121, 224, 216, 0.12);
+  background: linear-gradient(135deg, rgba(121, 224, 216, 0.14), rgba(255, 146, 92, 0.08));
+  border-color: rgba(121, 224, 216, 0.3);
+  box-shadow: 0 0 0 1px rgba(121, 224, 216, 0.08);
+}
+
+.collapsible-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-summary::after {
+  content: ">";
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-left: auto;
+  transition: transform 160ms ease, color 160ms ease;
+}
+
+[data-collapsible] > summary.section-heading,
+[data-collapsible] > summary.legend-header {
+  margin-bottom: 0;
+}
+
+[open] > .collapsible-summary::after {
+  content: "v";
+  color: var(--text);
+}
+
+.collapsible-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
 }
 
 .hero-legend,
@@ -185,16 +224,25 @@ body[data-workspace="channels"] .app-shell {
 
 .channel-config-form {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .channel-section {
   display: grid;
-  gap: 12px;
-  padding: 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(148, 172, 216, 0.09);
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(148, 172, 216, 0.08);
+}
+
+.channel-section > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.channel-section > summary::-webkit-details-marker {
+  display: none;
 }
 
 .channel-section .section-heading {
@@ -204,6 +252,19 @@ body[data-workspace="channels"] .app-shell {
 .channel-section .section-heading h3 {
   margin: 0;
   font-size: 0.96rem;
+}
+
+.channel-section .section-heading h3::after {
+  content: ">";
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--muted);
+  transition: transform 160ms ease, color 160ms ease;
+}
+
+.channel-section[open] .section-heading h3::after {
+  content: "v";
+  color: var(--text);
 }
 
 .channel-form-actions {
@@ -314,11 +375,11 @@ input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid rgba(148, 172, 216, 0.18);
-  border-radius: 14px;
-  background: rgba(7, 13, 24, 0.8);
+  border: 1px solid rgba(148, 172, 216, 0.14);
+  border-radius: 11px;
+  background: rgba(7, 12, 20, 0.88);
   color: var(--text);
-  padding: 12px 14px;
+  padding: 10px 12px;
 }
 
 textarea {
@@ -376,8 +437,8 @@ textarea {
 
 .button {
   border: 0;
-  border-radius: 999px;
-  padding: 11px 16px;
+  border-radius: 12px;
+  padding: 10px 15px;
   cursor: pointer;
   transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
 }
@@ -387,7 +448,7 @@ textarea {
 }
 
 .button.primary {
-  background: linear-gradient(135deg, #ff925c, #ff5f7f);
+  background: linear-gradient(135deg, #e9814e, #d85f7a);
   color: white;
 }
 
@@ -411,7 +472,9 @@ textarea {
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 14px;
   align-items: start;
-  background: var(--panel-strong);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
 .hero h2 {
@@ -454,12 +517,16 @@ textarea {
   border-bottom-color: rgba(148, 172, 216, 0.18);
 }
 
-.help-panel summary span:first-child {
+.help-panel summary h2,
+.help-panel summary h3,
+.legend-header h3 {
   color: var(--text);
   font-weight: 700;
+  margin: 0;
 }
 
-.help-panel summary span:last-child {
+.help-panel summary span,
+.legend-header span {
   color: var(--muted);
   font-size: 0.82rem;
 }
@@ -468,6 +535,10 @@ textarea {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  padding: 0;
+}
+
+.help-panel .collapsible-body {
   padding: 14px 18px 18px;
 }
 
@@ -528,7 +599,7 @@ textarea {
 
 .legend {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .legend-item {
@@ -551,10 +622,10 @@ textarea {
 }
 
 .mini-stat {
-  padding: 12px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 11px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.045);
 }
 
 .mini-stat strong {

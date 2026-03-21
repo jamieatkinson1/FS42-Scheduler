@@ -29,28 +29,40 @@ const WORKSPACE_META = {
   schedule: {
     eyebrow: "Planning Board",
     title: "Linear Channel Scheduling",
-    description: "Use the timeline to place, drag, and resize blocks while the schedule stays the main surface.",
+    description: "Plan on the timeline first, then use table and export views only when the schedule is ready.",
   },
   channels: {
     eyebrow: "Channel Setup",
     title: "FS42 Station Config",
-    description: "Define channel numbers, commercial policy, media paths, and other station_conf-style settings.",
+    description: "Edit the station_conf header values that shape each channel before export.",
   },
   review: {
     eyebrow: "Review Board",
     title: "Audit and Validation",
-    description: "Check the table, conflicts, and readiness notes before you hand the plan over to export.",
+    description: "Inspect the table, conflicts, and readiness notes without crowding the planner.",
   },
   export: {
     eyebrow: "Export Handoff",
     title: "Readiness and Output",
-    description: "Choose the export profile, review blockers, and generate JSON or CSV files for FS42.",
+    description: "Choose the export profile, check blockers, and generate JSON or CSV handoff files.",
   },
   help: {
     eyebrow: "Help / Settings",
     title: "Quick Workflow Guide",
-    description: "Keep the workspace lightweight, local-first, and easy to operate on a laptop or small workstation.",
+    description: "Short workflow notes and lightweight settings for a local-first scheduler workspace.",
   },
+};
+const DEFAULT_COLLAPSED_SECTIONS = {
+  "planning-controls": false,
+  "colour-legend": false,
+  "channel-identity": true,
+  "channel-schedule": true,
+  "channel-content": false,
+  "channel-runtime": false,
+  "channel-advanced": false,
+  "review-notes": false,
+  "export-notes": false,
+  "help-workflow": false,
 };
 const DAY_START = 6 * 60;
 const DAY_END = 24 * 60;
@@ -145,6 +157,7 @@ const elements = {
   seedButton: document.getElementById("seedButton"),
   exportCsv: document.getElementById("exportCsv"),
   exportJson: document.getElementById("exportJson"),
+  collapsiblePanels: Array.from(document.querySelectorAll("[data-collapsible]")),
 };
 
 const dragState = {
@@ -237,6 +250,7 @@ function init() {
   bindEvents();
   if (DEBUG_TIMELINE_DND) initTimelineDebugPanel();
   syncControls();
+  syncCollapsibleSections();
   resetItemForm();
   resetChannelForm();
   render();
@@ -341,6 +355,7 @@ function createDefaultState() {
     exportProfile: "fs42-native",
     selectedDay: "Monday",
     selectedChannelId: "all",
+    collapsedSections: getDefaultCollapsedSections(),
     channels,
     items: seedStrategicOrders([
       createItem("FS42 Breakfast Live", "Programme", "Entertainment", channels[0].id, "Monday", "06:00", 180, "High", "Morning studio", "FS42-MAIN-001", {}, "Live breakfast block."),
@@ -521,6 +536,9 @@ function bindEvents() {
   });
   elements.exportCsv.addEventListener("click", () => exportSchedule("csv"));
   elements.exportJson.addEventListener("click", () => exportSchedule("json"));
+  elements.collapsiblePanels.forEach((panel) => {
+    panel.addEventListener("toggle", handleCollapsibleToggle);
+  });
 
   document.addEventListener("pointermove", handleBlockPointerMove, true);
   document.addEventListener("pointerup", handleBlockPointerUp, true);
@@ -554,6 +572,19 @@ function handleWorkspaceChange(workspace) {
   }
   syncControls();
   persistAndRender();
+}
+
+function handleCollapsibleToggle(event) {
+  const panel = event.currentTarget;
+  const id = panel?.dataset?.collapsibleId;
+  if (!id) return;
+
+  state.collapsedSections = {
+    ...getDefaultCollapsedSections(),
+    ...normalizeCollapsedSections(state.collapsedSections),
+    [id]: Boolean(panel.open),
+  };
+  persistState();
 }
 
 function handleItemTypeChange() {
@@ -693,6 +724,7 @@ function syncChannelMultiLogoControls() {
 
 function render() {
   renderWorkspaceChrome();
+  syncCollapsibleSections();
   refreshChannelSelects();
   renderLegend();
   renderPlanner();
@@ -718,6 +750,34 @@ function renderWorkspaceChrome() {
   elements.workspaceButtons.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.workspaceButton === workspace);
     button.setAttribute("aria-pressed", button.dataset.workspaceButton === workspace ? "true" : "false");
+  });
+}
+
+function getDefaultCollapsedSections() {
+  return { ...DEFAULT_COLLAPSED_SECTIONS };
+}
+
+function normalizeCollapsedSections(value = {}) {
+  const defaults = getDefaultCollapsedSections();
+  const normalized = { ...defaults };
+
+  Object.entries(value || {}).forEach(([key, entry]) => {
+    if (Object.prototype.hasOwnProperty.call(defaults, key)) {
+      normalized[key] = Boolean(entry);
+    }
+  });
+
+  return normalized;
+}
+
+function syncCollapsibleSections() {
+  const sections = elements.collapsiblePanels.length > 0 ? elements.collapsiblePanels : Array.from(document.querySelectorAll("[data-collapsible]"));
+  const collapsedSections = normalizeCollapsedSections(state.collapsedSections);
+
+  sections.forEach((panel) => {
+    const id = panel.dataset.collapsibleId;
+    if (!id) return;
+    panel.open = Boolean(collapsedSections[id]);
   });
 }
 
@@ -2856,8 +2916,8 @@ function validateFs42NativeExport() {
       else nativeBlockers.push(payload);
     });
 
-    const payload = buildFs42NativeChannelJson(channel, channelItems, channelNumber);
-    const issues = validateFs42NativePayload(payload, channel, channelNumber);
+    const stationConf = buildFs42NativeStationConfig(channel, channelItems, channelNumber);
+    const issues = validateFs42NativePayload({ station_conf: stationConf }, channel, channelNumber);
     issues.forEach((issue) => {
       nativeBlockers.push({
         ...issue,
@@ -3991,6 +4051,10 @@ function syncControls() {
   renderWorkspaceChrome();
 }
 
+function persistState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
 function exportSchedule(format) {
   const rows = state.items.map((item) => ({
     title: item.title,
@@ -4089,7 +4153,7 @@ function exportFs42NativeStationConfigs() {
   state.channels.forEach((channel, index) => {
     const channelItems = state.items.filter((item) => item.channelId === channel.id);
     const channelNumber = parsePositiveInteger(channel.channelNumber) || index + 1;
-    const payload = buildFs42NativeChannelJson(channel, channelItems, channelNumber);
+    const payload = { station_conf: buildFs42NativeStationConfig(channel, channelItems, channelNumber) };
     const baseName = getFs42NativeFileBase(channel, channelNumber);
 
     window.setTimeout(() => {
@@ -4098,12 +4162,7 @@ function exportFs42NativeStationConfigs() {
   });
 }
 
-function buildFs42NativeChannelJson(channel, channelItems, channelNumber) {
-  return {
-    station_conf: buildFs42NativeStationConfig(channel, channelItems, channelNumber),
-  };
-}
-
+// Authoritative FS42 station_conf builder for native exports.
 function buildFs42NativeStationConfig(channel, channelItems, channelNumber) {
   const programmeItems = channelItems
     .filter((item) => !ITEM_TYPE_META[item.itemType]?.commercial)
@@ -4342,7 +4401,7 @@ function uniqueValues(values) {
 }
 
 function persistAndRender() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  persistState();
   render();
 }
 
@@ -4369,6 +4428,7 @@ function normalizeState(parsed) {
       exportProfile: normalizeExportProfile(parsed.exportProfile),
       selectedDay: parsed.selectedDay || "Monday",
       selectedChannelId: parsed.selectedChannelId || "all",
+      collapsedSections: normalizeCollapsedSections(parsed.collapsedSections),
       channels: normalizeChannels(parsed.channels),
       items: seedStrategicOrders(normalizeItems(parsed.items || parsed.shows || [], parsed.channels)),
     };
@@ -4385,6 +4445,7 @@ function normalizeState(parsed) {
       exportProfile: normalizeExportProfile(parsed.exportProfile),
       selectedDay: parsed.selectedDay || "Monday",
       selectedChannelId: "all",
+      collapsedSections: normalizeCollapsedSections(parsed.collapsedSections),
       channels,
       items: seedStrategicOrders(parsed.shows.map((show) => ({
         id: show.id || crypto.randomUUID(),

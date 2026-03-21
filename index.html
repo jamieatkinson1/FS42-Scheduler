@@ -13,7 +13,7 @@
           <p class="eyebrow">Single-user network planner</p>
           <h1>FS42 Scheduler</h1>
           <p class="lede">
-            Scheduler-first planning board for FS42 channels, breaks, and exports.
+            Browser-based planning workspace for schedule, station config, review, and export.
           </p>
         </div>
 
@@ -25,89 +25,94 @@
           <div class="workspace-buttons">
             <button type="button" class="workspace-button is-active" data-workspace-button="schedule" title="Main planning timeline and item editing surface">
               <strong>Schedule</strong>
-              <small>Main planning board</small>
+              <small>Timeline planning workspace</small>
             </button>
             <button type="button" class="workspace-button" data-workspace-button="channels" title="Channel configuration and station_conf settings">
               <strong>Channels</strong>
-              <small>Station config setup</small>
+              <small>FS42 channel config</small>
             </button>
             <button type="button" class="workspace-button" data-workspace-button="review" title="Table audit view and readiness notes">
               <strong>Review</strong>
-              <small>Audit and conflicts</small>
+              <small>Audit and validation</small>
             </button>
             <button type="button" class="workspace-button" data-workspace-button="export" title="Export profiles, blockers, and JSON / CSV actions">
               <strong>Export</strong>
-              <small>Handoff and readiness</small>
+              <small>Handoff and output</small>
             </button>
             <button type="button" class="workspace-button" data-workspace-button="help" title="Quick guidance and lightweight settings">
               <strong>Help / Settings</strong>
-              <small>Usage notes</small>
+              <small>Workflow notes</small>
             </button>
           </div>
         </nav>
 
-        <section class="panel controls-panel workspace-schedule workspace-review">
-          <div class="section-heading">
-            <h2>Planning Controls</h2>
-            <span>Set the view, planning scope, and colour logic</span>
-          </div>
+        <details class="panel controls-panel workspace-schedule workspace-review" data-collapsible data-collapsible-id="planning-controls">
+          <summary class="section-heading collapsible-summary">
+            <div>
+              <h2>Planning Controls</h2>
+              <span>Set the view, planning scope, and colour logic</span>
+            </div>
+          </summary>
 
-          <div class="split-fields">
+          <div class="collapsible-body">
+
+            <div class="split-fields">
+              <label class="field">
+                <span>View mode</span>
+                <select id="viewMode">
+                  <option value="timeline">Timeline</option>
+                  <option value="table">Table</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Planning scope</span>
+                <select id="timelineScale">
+                  <option value="day">Day</option>
+                  <option value="week">Week</option>
+                  <option value="month">Month</option>
+                </select>
+              </label>
+            </div>
+
             <label class="field">
-              <span>View mode</span>
-              <select id="viewMode">
-                <option value="timeline">Timeline</option>
-                <option value="table">Table</option>
+              <span>Colour by</span>
+              <select id="colorMode">
+                <option value="channel">Channel</option>
+                <option value="slot">Time Slot</option>
+                <option value="importance">Importance</option>
+                <option value="type">Item Type</option>
               </select>
             </label>
 
-            <label class="field">
-              <span>Planning scope</span>
-              <select id="timelineScale">
-                <option value="day">Day</option>
-                <option value="week">Week</option>
-                <option value="month">Month</option>
-              </select>
-            </label>
+            <div class="split-fields">
+              <label class="field">
+                <span>Weekday</span>
+                <select id="dayFilter"></select>
+              </label>
+
+              <label class="field">
+                <span>Channel</span>
+                <select id="channelFilter"></select>
+              </label>
+            </div>
+
+            <div class="stat-grid">
+              <article class="mini-stat">
+                <span>Scheduled items</span>
+                <strong id="statBlocks">0</strong>
+              </article>
+              <article class="mini-stat">
+                <span>Planned runtime</span>
+                <strong id="statRuntime">0h</strong>
+              </article>
+              <article class="mini-stat">
+                <span>Commercial items</span>
+                <strong id="statPrime">0</strong>
+              </article>
+            </div>
           </div>
-
-          <label class="field">
-            <span>Colour by</span>
-            <select id="colorMode">
-              <option value="channel">Channel</option>
-              <option value="slot">Time Slot</option>
-              <option value="importance">Importance</option>
-              <option value="type">Item Type</option>
-            </select>
-          </label>
-
-          <div class="split-fields">
-            <label class="field">
-              <span>Weekday</span>
-              <select id="dayFilter"></select>
-            </label>
-
-            <label class="field">
-              <span>Channel</span>
-              <select id="channelFilter"></select>
-            </label>
-          </div>
-
-          <div class="stat-grid">
-            <article class="mini-stat">
-              <span>Scheduled items</span>
-              <strong id="statBlocks">0</strong>
-            </article>
-            <article class="mini-stat">
-              <span>Planned runtime</span>
-              <strong id="statRuntime">0h</strong>
-            </article>
-            <article class="mini-stat">
-              <span>Commercial items</span>
-              <strong id="statPrime">0</strong>
-            </article>
-          </div>
-        </section>
+        </details>
 
         <section class="panel channel-panel workspace-channels">
           <div class="section-heading">
@@ -118,11 +123,14 @@
           <form id="channelForm" class="channel-config-form">
             <input type="hidden" id="channelId" />
 
-            <section class="channel-section">
-              <div class="section-heading compact">
-                <h3>Identity</h3>
-                <span>Network name, number, grouping, and visual identity</span>
-              </div>
+            <details class="channel-section" data-collapsible data-collapsible-id="channel-identity" open>
+              <summary class="section-heading compact collapsible-summary">
+                <div>
+                  <h3>Identity</h3>
+                  <span>Network name, number, grouping, and visual identity</span>
+                </div>
+              </summary>
+              <div class="collapsible-body">
 
               <div class="split-fields">
                 <label class="field">
@@ -152,13 +160,17 @@
                 <span>Tagline</span>
                 <input id="channelTagline" name="channelTagline" type="text" placeholder="Flagship entertainment feed" />
               </label>
-            </section>
-
-            <section class="channel-section">
-              <div class="section-heading compact">
-                <h3>Schedule behaviour</h3>
-                <span>Core timing and break behaviour for this channel</span>
               </div>
+            </details>
+
+            <details class="channel-section" data-collapsible data-collapsible-id="channel-schedule" open>
+              <summary class="section-heading compact collapsible-summary">
+                <div>
+                  <h3>Schedule behaviour</h3>
+                  <span>Core timing and break behaviour for this channel</span>
+                </div>
+              </summary>
+              <div class="collapsible-body">
 
               <div class="split-fields">
                 <label class="field">
@@ -189,13 +201,17 @@
                 <span>Commercial free</span>
               </label>
               <small class="field-help">If enabled, the exporter will keep the channel marked as commercial-free unless you change it.</small>
-            </section>
-
-            <section class="channel-section">
-              <div class="section-heading compact">
-                <h3>Content sources</h3>
-                <span>Directories and clip show references used by FS42</span>
               </div>
+            </details>
+
+            <details class="channel-section" data-collapsible data-collapsible-id="channel-content">
+              <summary class="section-heading compact collapsible-summary">
+                <div>
+                  <h3>Content sources</h3>
+                  <span>Directories and clip show references used by FS42</span>
+                </div>
+              </summary>
+              <div class="collapsible-body">
 
               <label class="field">
                 <span>Content directory</span>
@@ -217,13 +233,17 @@
                 <textarea id="clipShows" name="clipShows" rows="2" placeholder="Show A, Show B, Show C"></textarea>
                 <small class="field-help">Enter one or more clip show names separated by commas or line breaks.</small>
               </label>
-            </section>
-
-            <section class="channel-section">
-              <div class="section-heading compact">
-                <h3>Runtime assets</h3>
-                <span>Media files used for sign-off, standby, and be-right-back states</span>
               </div>
+            </details>
+
+            <details class="channel-section" data-collapsible data-collapsible-id="channel-runtime">
+              <summary class="section-heading compact collapsible-summary">
+                <div>
+                  <h3>Runtime assets</h3>
+                  <span>Media files used for sign-off, standby, and be-right-back states</span>
+                </div>
+              </summary>
+              <div class="collapsible-body">
 
               <label class="field">
                 <span>Sign-off video</span>
@@ -244,13 +264,17 @@
                 <span>Be-right-back media</span>
                 <input id="beRightBackMedia" name="beRightBackMedia" type="text" placeholder="runtime/brb.png" />
               </label>
-            </section>
-
-            <section class="channel-section">
-              <div class="section-heading compact">
-                <h3>Advanced</h3>
-                <span>Logo configuration and multi-logo behaviour</span>
               </div>
+            </details>
+
+            <details class="channel-section" data-collapsible data-collapsible-id="channel-advanced">
+              <summary class="section-heading compact collapsible-summary">
+                <div>
+                  <h3>Advanced</h3>
+                  <span>Logo configuration and multi-logo behaviour</span>
+                </div>
+              </summary>
+              <div class="collapsible-body">
 
               <div class="split-fields">
                 <label class="field">
@@ -281,10 +305,7 @@
                 <span>Use multi-logo mode</span>
               </label>
               <div id="channelMultiLogoPanel" class="conditional-panel" hidden>
-                <label
-                  class="field"
-                  title="FS42 expects multi_logo to be a string profile name, such as main_rotation. Leave multi-logo mode off to omit it."
-                >
+                <label class="field" title="FS42 expects multi_logo to be a string profile name, such as main_rotation. Leave multi-logo mode off to omit it.">
                   <span>multi_logo profile</span>
                   <input
                     id="channelMultiLogoProfile"
@@ -298,13 +319,13 @@
                     leave <code>multi_logo</code> empty.
                   </small>
                 </label>
-                <datalist id="multiLogoProfiles">
-                  <option value="main_rotation"></option>
-                  <option value="brand_loop"></option>
-                  <option value="news_cycle"></option>
-                </datalist>
+              <datalist id="multiLogoProfiles">
+                <option value="main_rotation"></option>
+                <option value="brand_loop"></option>
+                <option value="news_cycle"></option>
+              </datalist>
               </div>
-            </section>
+            </details>
 
             <div class="button-row channel-form-actions">
               <button type="submit" class="button primary">Save Channel</button>
@@ -451,19 +472,20 @@
             <p class="eyebrow" id="heroWorkspaceLabel">Planning Board</p>
             <h2 id="heroWorkspaceTitle">Linear Channel Scheduling</h2>
             <p id="heroWorkspaceDescription">
-              Use the timeline for placement, the table for review, and export
-              channel schedules for FS42 when the board is ready.
+              Use Schedule for placement, Channels for station config, Review for audit, and Export for handoff.
             </p>
           </div>
 
           <div class="hero-actions">
-            <div class="hero-legend workspace-schedule workspace-review workspace-export">
-              <div class="legend-header">
+            <details class="hero-legend workspace-schedule workspace-review workspace-export" data-collapsible data-collapsible-id="colour-legend">
+              <summary class="legend-header collapsible-summary">
                 <h3>Colour Legend</h3>
                 <span id="legendModeLabel">Channel</span>
+              </summary>
+              <div class="collapsible-body">
+                <div id="legend" class="legend"></div>
               </div>
-              <div id="legend" class="legend"></div>
-            </div>
+            </details>
             <div class="hero-export workspace-export">
               <label class="field export-profile-field">
                 <span>Export profile</span>
@@ -478,31 +500,43 @@
                 <button id="exportJson" type="button" class="button secondary">Export FS42 Native JSON</button>
                 <button id="seedButton" type="button" class="button secondary">Restore Demo Data</button>
               </div>
+              <details class="export-notes" data-collapsible data-collapsible-id="export-notes">
+                <summary class="legend-header collapsible-summary">
+                  <h3>Export notes</h3>
+                  <span>Station config rules</span>
+                </summary>
+                <div class="collapsible-body">
+                  <p class="field-help">
+                    FS42 native export writes one <code>station_conf</code> per channel. Keep channel settings in
+                    Channels, keep schedule blocks in Schedule, and use this view to check readiness before export.
+                  </p>
+                </div>
+              </details>
             </div>
           </div>
         </section>
 
-        <details class="panel help-panel workspace-help">
-          <summary>
-            <span>How to use this</span>
-            <span>Quick workflow for FS42 handoff</span>
+        <details class="panel help-panel workspace-help" data-collapsible data-collapsible-id="help-workflow">
+          <summary class="legend-header collapsible-summary">
+            <h2>How to use this</h2>
+            <span>Quick FS42 workflow</span>
           </summary>
-          <div class="help-steps">
+          <div class="collapsible-body help-steps">
             <article>
-              <strong>1. Define channels</strong>
-              <p>Set the channel name, group, and colour before you start placing items.</p>
+              <strong>1. Schedule</strong>
+              <p>Use the timeline to place and shape blocks across the day.</p>
             </article>
             <article>
-              <strong>2. Add items</strong>
-              <p>Enter programmes, breaks, bumpers, promos, and the operational flags they need.</p>
+              <strong>2. Channels</strong>
+              <p>Edit station_conf settings per channel before export.</p>
             </article>
             <article>
-              <strong>3. Shape the timeline</strong>
-              <p>Drag, snap, and resize blocks until the lane reads cleanly across the day.</p>
+              <strong>3. Review</strong>
+              <p>Check the table, conflicts, and validation notes.</p>
             </article>
             <article>
-              <strong>4. Review and export</strong>
-              <p>Use table view for audit checks, then export when the readiness panel says you are clear.</p>
+              <strong>4. Export</strong>
+              <p>Pick the profile, resolve blockers, and hand off the files.</p>
             </article>
           </div>
         </details>
@@ -553,13 +587,17 @@
             <div id="showList" class="show-list"></div>
           </section>
 
-          <section class="panel insights-panel">
-            <div class="section-heading">
-              <h2>Readiness Notes</h2>
-              <span>Warnings, gaps, and export context</span>
+          <details class="panel insights-panel" data-collapsible data-collapsible-id="review-notes">
+            <summary class="section-heading collapsible-summary">
+              <div>
+                <h2>Readiness Notes</h2>
+                <span>Warnings, gaps, and export context</span>
+              </div>
+            </summary>
+            <div class="collapsible-body">
+              <div id="insights" class="insights"></div>
             </div>
-            <div id="insights" class="insights"></div>
-          </section>
+          </details>
         </section>
       </main>
     </div>
