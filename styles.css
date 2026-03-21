@@ -172,7 +172,7 @@ body[data-workspace="channels"] .app-shell {
 .brand-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 8px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(8px);
 }
@@ -249,7 +249,7 @@ body[data-workspace="channels"] .app-shell {
   width: 100%;
   padding: 11px 12px;
   border: 1px solid rgba(148, 172, 216, 0.12);
-  border-radius: 12px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.03);
   color: var(--text);
   text-align: left;
@@ -340,7 +340,7 @@ body[data-workspace="channels"] .app-shell {
   display: grid;
   gap: 10px;
   padding: 12px;
-  border-radius: 14px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(148, 172, 216, 0.08);
 }
@@ -472,7 +472,7 @@ select,
 textarea {
   width: 100%;
   border: 1px solid rgba(148, 172, 216, 0.14);
-  border-radius: 11px;
+  border-radius: 6px;
   background: rgba(7, 12, 20, 0.88);
   color: var(--text);
   padding: 10px 12px;
@@ -517,7 +517,7 @@ textarea {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: var(--text);
@@ -533,7 +533,7 @@ textarea {
 
 .button {
   border: 0;
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 10px 15px;
   cursor: pointer;
   transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
@@ -648,7 +648,7 @@ textarea {
 
 .help-steps article {
   padding: 12px 12px 13px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -670,7 +670,7 @@ textarea {
   display: grid;
   gap: 8px;
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: 6px;
   border: 1px solid rgba(148, 172, 216, 0.16);
   background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
@@ -715,7 +715,7 @@ textarea {
 .legend-swatch {
   width: 16px;
   height: 16px;
-  border-radius: 5px;
+  border-radius: 4px;
 }
 
 .stat-grid {
@@ -727,7 +727,7 @@ textarea {
 
 .mini-stat {
   padding: 11px;
-  border-radius: 12px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.045);
 }
@@ -759,7 +759,7 @@ textarea {
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 0.62rem;
   line-height: 1;
   letter-spacing: 0.04em;
@@ -799,7 +799,7 @@ textarea {
 .timeline-shell,
 .table-shell {
   overflow: auto;
-  border-radius: 14px;
+  border-radius: 8px;
   border: 1px solid rgba(151, 170, 206, 0.2);
   background: rgba(6, 11, 21, 0.6);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -1020,7 +1020,7 @@ body.is-pointer-dragging {
   top: 5px;
   bottom: 5px;
   width: 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.4);
   cursor: ew-resize;
 }
@@ -1061,7 +1061,7 @@ body.is-pointer-dragging {
 
 .mini-card {
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   color: white;
   font-size: 0.8rem;
@@ -1105,7 +1105,7 @@ body.is-strategic-dragging {
 .channel-card,
 .show-card {
   padding: 16px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -1129,7 +1129,7 @@ body.is-strategic-dragging {
 .channel-swatch {
   width: 18px;
   height: 92px;
-  border-radius: 999px;
+  border-radius: 6px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
 }
 
@@ -1189,7 +1189,7 @@ body.is-strategic-dragging {
   display: inline-flex;
   align-items: center;
   padding: 6px 10px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
   font-size: 0.75rem;
@@ -1221,7 +1221,7 @@ body.is-strategic-dragging {
 .empty-state {
   padding: 16px;
   border: 1px dashed rgba(151, 170, 206, 0.25);
-  border-radius: 16px;
+  border-radius: 8px;
   color: var(--muted);
 }
 
@@ -1283,7 +1283,7 @@ body.is-strategic-dragging {
   pointer-events: none;
   padding: 12px 13px;
   border: 1px solid rgba(121, 224, 216, 0.22);
-  border-radius: 14px;
+  border-radius: 8px;
   background: rgba(8, 13, 24, 0.94);
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
   color: var(--text);
@@ -1356,7 +1356,7 @@ body.is-strategic-dragging {
   .brand-card,
   .panel {
     padding: 18px;
-    border-radius: 20px;
+    border-radius: 8px;
   }
 
   .split-fields,
