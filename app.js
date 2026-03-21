@@ -141,6 +141,30 @@ const pointerDragState = {
   rafId: 0,
 };
 
+const strategicDragState = {
+  armed: false,
+  dragging: false,
+  itemId: null,
+  pointerId: null,
+  mode: null,
+  originItemSnapshot: null,
+  originChannelId: null,
+  originCategory: null,
+  originDay: null,
+  originPlanningWeek: null,
+  lastTargetCellEl: null,
+  lastTargetKey: "-",
+  lastTargetChannelId: null,
+  lastTargetCategory: null,
+  lastTargetColumnValue: null,
+  previewItem: null,
+  startClientX: 0,
+  startClientY: 0,
+  pendingFrame: false,
+  rafId: 0,
+  recentClickSuppressionId: null,
+};
+
 let timelineDebugPanel = null;
 
 const resizeState = {
@@ -213,6 +237,7 @@ function createItem(
     slot: getSlotFromMinutes(timeToMinutes(start)),
     blockGroup,
     assetCode,
+    planningWeek: flags.planningWeek ?? null,
     ...normalizeFlags(flags),
     notes,
   };
@@ -287,6 +312,9 @@ function bindEvents() {
   document.addEventListener("pointermove", handleBlockPointerMove, true);
   document.addEventListener("pointerup", handleBlockPointerUp, true);
   document.addEventListener("pointercancel", handleBlockPointerCancel, true);
+  document.addEventListener("pointermove", handleStrategicCardPointerMove, true);
+  document.addEventListener("pointerup", handleStrategicCardPointerUp, true);
+  document.addEventListener("pointercancel", handleStrategicCardPointerCancel, true);
 
   window.addEventListener("mousemove", handleResizeMove);
   window.addEventListener("mouseup", stopResize);
@@ -573,6 +601,7 @@ function renderDayTimeline() {
 function renderStrategicBoard(scaleMode) {
   const visibleChannels = getVisibleChannels();
   const columns = scaleMode === "week" ? DAY_NAMES : ["Week 1", "Week 2", "Week 3", "Week 4"];
+  const renderItems = getStrategicRenderItems(getVisibleItems());
 
   elements.timelineHeading.textContent =
     scaleMode === "week" ? "Weekly Planning Board" : "Monthly Planning Board";
@@ -594,6 +623,8 @@ function renderStrategicBoard(scaleMode) {
   columns.forEach((column) => {
     const cell = document.createElement("div");
     cell.className = "board-cell-header";
+    cell.dataset.columnValue = column;
+    cell.dataset.columnIndex = String(columns.indexOf(column));
     cell.textContent = column;
     boardHeader.appendChild(cell);
   });
@@ -615,7 +646,17 @@ function renderStrategicBoard(scaleMode) {
       columns.forEach((_, index) => {
         const cell = document.createElement("div");
         cell.className = "board-cell";
-        const cellItems = getStrategicItems(channel.id, category, scaleMode, index);
+        const columnValue = scaleMode === "week" ? columns[index] : String(index + 1);
+        cell.dataset.channelId = channel.id;
+        cell.dataset.category = category;
+        cell.dataset.columnIndex = String(index);
+        cell.dataset.columnValue = columnValue;
+        const cellKey = getStrategicCellKey(channel.id, category, columnValue);
+        cell.classList.toggle(
+          "is-strategic-drop-target",
+          strategicDragState.dragging && strategicDragState.lastTargetKey === cellKey,
+        );
+        const cellItems = getStrategicItems(renderItems, channel.id, category, scaleMode, index);
 
         if (cellItems.length === 0) {
           const tag = document.createElement("span");
@@ -627,9 +668,12 @@ function renderStrategicBoard(scaleMode) {
             const card = document.createElement("button");
             card.type = "button";
             card.className = "mini-card";
+            card.dataset.itemId = item.id;
             card.style.background = getItemColor(item);
             card.innerHTML = `<strong>${item.title}</strong><small>${item.day} | ${item.start} | ${item.itemType}</small>`;
-            card.addEventListener("click", () => hydrateItemForm(item.id));
+            card.classList.toggle("is-strategic-dragging", strategicDragState.dragging && strategicDragState.itemId === item.id);
+            card.addEventListener("pointerdown", handleStrategicCardPointerDown);
+            card.addEventListener("click", handleStrategicCardClick);
             cell.appendChild(card);
           });
         }
@@ -644,6 +688,23 @@ function renderStrategicBoard(scaleMode) {
 
   elements.timelineShell.innerHTML = "";
   elements.timelineShell.appendChild(shell);
+}
+
+function getStrategicRenderItems(items) {
+  if (!strategicDragState.dragging || !strategicDragState.previewItem) return items;
+  return items.map((item) => (item.id === strategicDragState.itemId ? strategicDragState.previewItem : item));
+}
+
+function getStrategicCellKey(channelId, category, columnValue) {
+  return `${channelId}|${category}|${columnValue}`;
+}
+
+function getStrategicMonthBucket(item) {
+  const stored = Number(item.planningWeek);
+  if (Number.isInteger(stored) && stored >= 1 && stored <= 4) return stored;
+  const dayIndex = DAY_NAMES.indexOf(item.day);
+  if (dayIndex < 0) return 1;
+  return Math.min(4, Math.floor((dayIndex * 4) / DAY_NAMES.length) + 1);
 }
 
 function renderSlotBands(lane) {
@@ -852,6 +913,233 @@ function handleBlockPointerCancel(event) {
   if (!pointerDragState.active) return;
   if (pointerDragState.pointerId !== null && event.pointerId !== pointerDragState.pointerId) return;
   cancelPointerDrag("pointercancel", event);
+}
+
+function handleStrategicCardPointerDown(event) {
+  if (state.timelineScale === "day") return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+
+  const item = state.items.find((entry) => entry.id === event.currentTarget.dataset.itemId);
+  if (!item) return;
+
+  strategicDragState.armed = true;
+  strategicDragState.dragging = false;
+  strategicDragState.itemId = item.id;
+  strategicDragState.pointerId = event.pointerId ?? null;
+  strategicDragState.mode = state.timelineScale;
+  strategicDragState.originItemSnapshot = { ...item };
+  strategicDragState.originChannelId = item.channelId;
+  strategicDragState.originCategory = item.category;
+  strategicDragState.originDay = item.day;
+  strategicDragState.originPlanningWeek = getStrategicMonthBucket(item);
+  strategicDragState.startClientX = event.clientX;
+  strategicDragState.startClientY = event.clientY;
+  strategicDragState.lastTargetChannelId = item.channelId;
+  strategicDragState.lastTargetCategory = item.category;
+  strategicDragState.lastTargetColumnValue = state.timelineScale === "week" ? item.day : String(strategicDragState.originPlanningWeek);
+  strategicDragState.lastTargetKey = getStrategicCellKey(
+    item.channelId,
+    item.category,
+    strategicDragState.lastTargetColumnValue,
+  );
+  strategicDragState.lastTargetCellEl = event.currentTarget.closest(".board-cell");
+  strategicDragState.previewItem = { ...item };
+  strategicDragState.pendingFrame = false;
+
+  try {
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  } catch {
+    // Some browsers may not allow pointer capture on buttons.
+  }
+
+  if (DEBUG_TIMELINE_DND) {
+    console.log("[strategic-dnd] pointerdown", {
+      itemId: item.id,
+      title: item.title,
+      mode: state.timelineScale,
+      day: item.day,
+      planningWeek: item.planningWeek || "-",
+    });
+  }
+}
+
+function handleStrategicCardPointerMove(event) {
+  if (!strategicDragState.armed) return;
+  if (strategicDragState.pointerId !== null && event.pointerId !== strategicDragState.pointerId) return;
+
+  const movedX = Math.abs(event.clientX - strategicDragState.startClientX);
+  const movedY = Math.abs(event.clientY - strategicDragState.startClientY);
+  if (!strategicDragState.dragging && movedX < 6 && movedY < 6) return;
+
+  event.preventDefault();
+
+  if (!strategicDragState.dragging) {
+    strategicDragState.dragging = true;
+    document.body.classList.add("is-strategic-dragging");
+  }
+
+  updateStrategicDragPreviewFromEvent(event);
+  scheduleStrategicDragRender();
+}
+
+function handleStrategicCardPointerUp(event) {
+  if (!strategicDragState.armed) return;
+  if (strategicDragState.pointerId !== null && event.pointerId !== strategicDragState.pointerId) return;
+
+  if (!strategicDragState.dragging) {
+    clearStrategicDragState();
+    return;
+  }
+
+  event.preventDefault();
+  updateStrategicDragPreviewFromEvent(event);
+  commitStrategicDrag(event);
+}
+
+function handleStrategicCardPointerCancel(event) {
+  if (!strategicDragState.armed) return;
+  if (strategicDragState.pointerId !== null && event.pointerId !== strategicDragState.pointerId) return;
+  cancelStrategicDrag("pointercancel", event);
+}
+
+function handleStrategicCardClick(event) {
+  if (strategicDragState.recentClickSuppressionId === event.currentTarget.dataset.itemId) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
+  const itemId = event.currentTarget.dataset.itemId;
+  hydrateItemForm(itemId);
+}
+
+function scheduleStrategicDragRender() {
+  if (!strategicDragState.dragging || strategicDragState.pendingFrame) return;
+  strategicDragState.pendingFrame = true;
+  strategicDragState.rafId = window.requestAnimationFrame(() => {
+    strategicDragState.pendingFrame = false;
+    if (!strategicDragState.dragging) return;
+    renderPlanner();
+  });
+}
+
+function getStrategicPointerCellFromEvent(event) {
+  const pointElement = document.elementFromPoint(event.clientX, event.clientY);
+  return pointElement?.closest?.(".board-cell") || strategicDragState.lastTargetCellEl || null;
+}
+
+function updateStrategicDragPreviewFromEvent(event) {
+  const sourceItem = strategicDragState.originItemSnapshot || state.items.find((entry) => entry.id === strategicDragState.itemId) || null;
+  if (!sourceItem) return null;
+
+  const cell = getStrategicPointerCellFromEvent(event);
+  const mode = strategicDragState.mode || state.timelineScale;
+  const channelId = cell?.dataset.channelId || strategicDragState.lastTargetChannelId || sourceItem.channelId;
+  const category = cell?.dataset.category || strategicDragState.lastTargetCategory || sourceItem.category;
+  const columnValue = cell?.dataset.columnValue || strategicDragState.lastTargetColumnValue;
+  const previewItem = { ...sourceItem, channelId, category };
+
+  if (mode === "week") {
+    previewItem.day = columnValue || sourceItem.day;
+  } else {
+    const bucket = Number(cell?.dataset.columnIndex);
+    previewItem.planningWeek = Number.isInteger(bucket) ? bucket + 1 : strategicDragState.originPlanningWeek;
+  }
+
+  strategicDragState.previewItem = previewItem;
+  strategicDragState.lastTargetCellEl = cell;
+  strategicDragState.lastTargetChannelId = channelId;
+  strategicDragState.lastTargetCategory = category;
+  strategicDragState.lastTargetColumnValue = columnValue || strategicDragState.lastTargetColumnValue;
+  strategicDragState.lastTargetKey = getStrategicCellKey(channelId, category, strategicDragState.lastTargetColumnValue);
+
+  if (DEBUG_TIMELINE_DND) {
+    console.log("[strategic-dnd] hover", {
+      itemId: sourceItem.id,
+      title: sourceItem.title,
+      mode,
+      targetChannelId: channelId,
+      targetCategory: category,
+      targetColumn: strategicDragState.lastTargetColumnValue,
+      previewDay: previewItem.day,
+      previewPlanningWeek: previewItem.planningWeek ?? "-",
+    });
+  }
+
+  return previewItem;
+}
+
+function commitStrategicDrag(event) {
+  const item = state.items.find((entry) => entry.id === strategicDragState.itemId);
+  if (!item) {
+    cancelStrategicDrag("missing item", event);
+    return;
+  }
+
+  const preview = strategicDragState.previewItem || strategicDragState.originItemSnapshot || item;
+  const before = { day: item.day, planningWeek: item.planningWeek || null, channelId: item.channelId, category: item.category };
+  item.channelId = preview.channelId;
+  item.category = preview.category;
+  if ((strategicDragState.mode || state.timelineScale) === "week") {
+    item.day = preview.day || item.day;
+  } else {
+    item.planningWeek = Number.isInteger(preview.planningWeek) ? preview.planningWeek : strategicDragState.originPlanningWeek;
+  }
+
+  if (DEBUG_TIMELINE_DND) {
+    console.log("[strategic-dnd] commit", {
+      itemId: item.id,
+      title: item.title,
+      before,
+      after: { day: item.day, planningWeek: item.planningWeek || null, channelId: item.channelId, category: item.category },
+    });
+  }
+
+  clearStrategicDragState();
+  persistAndRender();
+  strategicDragState.recentClickSuppressionId = item.id;
+  window.setTimeout(() => {
+    if (strategicDragState.recentClickSuppressionId === item.id) strategicDragState.recentClickSuppressionId = null;
+  }, 0);
+}
+
+function cancelStrategicDrag(reason, event) {
+  if (DEBUG_TIMELINE_DND) {
+    console.log("[strategic-dnd] cancel", {
+      itemId: strategicDragState.itemId,
+      reason,
+    });
+  }
+  clearStrategicDragState();
+  if (event) event.preventDefault();
+  renderPlanner();
+}
+
+function clearStrategicDragState() {
+  strategicDragState.armed = false;
+  strategicDragState.dragging = false;
+  strategicDragState.itemId = null;
+  strategicDragState.pointerId = null;
+  strategicDragState.mode = null;
+  strategicDragState.originItemSnapshot = null;
+  strategicDragState.originChannelId = null;
+  strategicDragState.originCategory = null;
+  strategicDragState.originDay = null;
+  strategicDragState.originPlanningWeek = null;
+  strategicDragState.lastTargetCellEl = null;
+  strategicDragState.lastTargetKey = "-";
+  strategicDragState.lastTargetChannelId = null;
+  strategicDragState.lastTargetCategory = null;
+  strategicDragState.lastTargetColumnValue = null;
+  strategicDragState.previewItem = null;
+  strategicDragState.startClientX = 0;
+  strategicDragState.startClientY = 0;
+  strategicDragState.pendingFrame = false;
+  if (strategicDragState.rafId) {
+    window.cancelAnimationFrame(strategicDragState.rafId);
+    strategicDragState.rafId = 0;
+  }
+  document.body.classList.remove("is-strategic-dragging");
 }
 
 function schedulePointerDragRender() {
@@ -1721,8 +2009,8 @@ function getLaneCategories(channelId) {
   return categories.size > 0 ? Array.from(categories) : ["Entertainment"];
 }
 
-function getStrategicItems(channelId, category, scaleMode, index) {
-  const laneItems = state.items
+function getStrategicItems(items, channelId, category, scaleMode, index) {
+  const laneItems = items
     .filter((item) => item.channelId === channelId && item.category === category)
     .sort(compareItems);
 
@@ -1730,7 +2018,7 @@ function getStrategicItems(channelId, category, scaleMode, index) {
     return laneItems.filter((item) => DAY_NAMES.indexOf(item.day) === index);
   }
 
-  return laneItems.filter((item) => index < 4);
+  return laneItems.filter((item) => getStrategicMonthBucket(item) === index + 1);
 }
 
 function computeLaneLayout(items) {
@@ -3499,6 +3787,7 @@ function normalizeState(parsed) {
         slot: show.slot || getSlotFromMinutes(Number.isFinite(parseTimeMinutes(show.start)) ? parseTimeMinutes(show.start) : timeToMinutes("20:00")),
         blockGroup: show.blockGroup || "",
         assetCode: show.assetCode || "",
+        planningWeek: Number.isInteger(show.planningWeek) ? show.planningWeek : null,
         notes: show.notes || "",
       })),
     };
@@ -3525,6 +3814,7 @@ function normalizeItems(items, channels) {
     slot: item.slot || getSlotFromMinutes(Number.isFinite(parseTimeMinutes(item.start)) ? parseTimeMinutes(item.start) : timeToMinutes("20:00")),
     blockGroup: item.blockGroup || "",
     assetCode: item.assetCode || "",
+    planningWeek: Number.isInteger(item.planningWeek) ? item.planningWeek : null,
     notes: item.notes || "",
   }));
 }
