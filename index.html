@@ -17,7 +17,36 @@
           </p>
         </div>
 
-        <section class="panel controls-panel">
+        <nav class="panel workspace-nav" aria-label="Workspaces">
+          <div class="section-heading compact">
+            <h2>Workspaces</h2>
+            <span>Switch the task in focus</span>
+          </div>
+          <div class="workspace-buttons">
+            <button type="button" class="workspace-button is-active" data-workspace-button="schedule" title="Main planning timeline and item editing surface">
+              <strong>Schedule</strong>
+              <small>Main planning board</small>
+            </button>
+            <button type="button" class="workspace-button" data-workspace-button="channels" title="Channel configuration and station_conf settings">
+              <strong>Channels</strong>
+              <small>Station config setup</small>
+            </button>
+            <button type="button" class="workspace-button" data-workspace-button="review" title="Table audit view and readiness notes">
+              <strong>Review</strong>
+              <small>Audit and conflicts</small>
+            </button>
+            <button type="button" class="workspace-button" data-workspace-button="export" title="Export profiles, blockers, and JSON / CSV actions">
+              <strong>Export</strong>
+              <small>Handoff and readiness</small>
+            </button>
+            <button type="button" class="workspace-button" data-workspace-button="help" title="Quick guidance and lightweight settings">
+              <strong>Help / Settings</strong>
+              <small>Usage notes</small>
+            </button>
+          </div>
+        </nav>
+
+        <section class="panel controls-panel workspace-schedule workspace-review">
           <div class="section-heading">
             <h2>Planning Controls</h2>
             <span>Set the view, planning scope, and colour logic</span>
@@ -80,7 +109,7 @@
           </div>
         </section>
 
-        <section class="panel channel-panel">
+        <section class="panel channel-panel workspace-channels">
           <div class="section-heading">
             <h2>Channels</h2>
             <span>Name, group and colour your lineup</span>
@@ -149,7 +178,7 @@
           <div id="channelList" class="channel-list"></div>
         </section>
 
-        <section class="panel form-panel">
+        <section class="panel form-panel workspace-schedule">
           <div class="section-heading">
             <h2 id="formTitle">Add Item</h2>
             <span id="formHint">Schedule programming, commercials, and bumpers</span>
@@ -282,20 +311,23 @@
       <main class="main-panel">
         <section class="hero panel">
           <div>
-            <p class="eyebrow">Planning Board</p>
-            <h2>Linear Channel Scheduling</h2>
-            <p>
+            <p class="eyebrow" id="heroWorkspaceLabel">Planning Board</p>
+            <h2 id="heroWorkspaceTitle">Linear Channel Scheduling</h2>
+            <p id="heroWorkspaceDescription">
               Use the timeline for placement, the table for review, and export
               channel schedules for FS42 when the board is ready.
             </p>
           </div>
 
           <div class="hero-actions">
-            <div class="legend-header">
-              <h3>Colour Legend</h3>
-              <span id="legendModeLabel">Channel</span>
+            <div class="hero-legend workspace-schedule workspace-review workspace-export">
+              <div class="legend-header">
+                <h3>Colour Legend</h3>
+                <span id="legendModeLabel">Channel</span>
+              </div>
+              <div id="legend" class="legend"></div>
             </div>
-            <div id="legend" class="legend"></div>
+            <div class="hero-export workspace-export">
               <label class="field export-profile-field">
                 <span>Export profile</span>
                 <select id="exportProfile">
@@ -309,10 +341,11 @@
                 <button id="exportJson" type="button" class="button secondary">Export FS42 Native JSON</button>
                 <button id="seedButton" type="button" class="button secondary">Restore Demo Data</button>
               </div>
+            </div>
           </div>
         </section>
 
-        <details class="panel help-panel">
+        <details class="panel help-panel workspace-help">
           <summary>
             <span>How to use this</span>
             <span>Quick workflow for FS42 handoff</span>
@@ -337,7 +370,7 @@
           </div>
         </details>
 
-        <section class="planner panel">
+        <section class="planner panel workspace-schedule workspace-review">
           <div class="planner-toolbar">
               <div>
               <h3 id="timelineHeading">Monday Schedule</h3>
@@ -374,7 +407,7 @@
           </div>
         </section>
 
-        <section class="lower-grid">
+        <section class="lower-grid workspace-review">
           <section class="panel list-panel">
             <div class="section-heading">
               <h2>Review Board</h2>

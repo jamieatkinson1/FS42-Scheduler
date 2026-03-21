@@ -22,6 +22,33 @@ const IMPORTANCE_COLORS = {
   Medium: "#57d6b9",
   Low: "#7d91b9",
 };
+const WORKSPACE_META = {
+  schedule: {
+    eyebrow: "Planning Board",
+    title: "Linear Channel Scheduling",
+    description: "Use the timeline to place, drag, and resize blocks while the schedule stays the main surface.",
+  },
+  channels: {
+    eyebrow: "Channel Setup",
+    title: "FS42 Station Config",
+    description: "Define channel numbers, commercial policy, media paths, and other station_conf-style settings.",
+  },
+  review: {
+    eyebrow: "Review Board",
+    title: "Audit and Validation",
+    description: "Check the table, conflicts, and readiness notes before you hand the plan over to export.",
+  },
+  export: {
+    eyebrow: "Export Handoff",
+    title: "Readiness and Output",
+    description: "Choose the export profile, review blockers, and generate JSON or CSV files for FS42.",
+  },
+  help: {
+    eyebrow: "Help / Settings",
+    title: "Quick Workflow Guide",
+    description: "Keep the workspace lightweight, local-first, and easy to operate on a laptop or small workstation.",
+  },
+};
 const DAY_START = 6 * 60;
 const DAY_END = 24 * 60;
 const SNAP_MINUTES = 5;
@@ -37,6 +64,10 @@ const DEFAULT_CHANNELS = [
 ];
 
 const elements = {
+  workspaceButtons: Array.from(document.querySelectorAll("[data-workspace-button]")),
+  heroWorkspaceLabel: document.getElementById("heroWorkspaceLabel"),
+  heroWorkspaceTitle: document.getElementById("heroWorkspaceTitle"),
+  heroWorkspaceDescription: document.getElementById("heroWorkspaceDescription"),
   viewMode: document.getElementById("viewMode"),
   timelineScale: document.getElementById("timelineScale"),
   colorMode: document.getElementById("colorMode"),
@@ -248,6 +279,7 @@ function createItem(
 function createDefaultState() {
   const channels = structuredClone(DEFAULT_CHANNELS);
   return {
+    workspace: "schedule",
     viewMode: "timeline",
     timelineScale: "day",
     colorMode: "channel",
@@ -281,6 +313,9 @@ function populateStaticSelects() {
 }
 
 function bindEvents() {
+  elements.workspaceButtons.forEach((button) => {
+    button.addEventListener("click", () => handleWorkspaceChange(button.dataset.workspaceButton));
+  });
   elements.viewMode.addEventListener("change", handleControlChange);
   elements.timelineScale.addEventListener("change", handleControlChange);
   elements.colorMode.addEventListener("change", handleControlChange);
@@ -331,6 +366,11 @@ function handleControlChange(event) {
   if (event.target === elements.dayFilter) state.selectedDay = event.target.value;
   if (event.target === elements.channelFilter) state.selectedChannelId = event.target.value;
   syncControls();
+  persistAndRender();
+}
+
+function handleWorkspaceChange(workspace) {
+  state.workspace = normalizeWorkspace(workspace);
   persistAndRender();
 }
 
@@ -481,6 +521,7 @@ function syncChannelMultiLogoControls() {
 }
 
 function render() {
+  renderWorkspaceChrome();
   refreshChannelSelects();
   renderLegend();
   renderPlanner();
@@ -491,6 +532,22 @@ function render() {
   renderStats();
   syncExportControls();
   updateItemValidationSummary();
+}
+
+function renderWorkspaceChrome() {
+  const workspace = normalizeWorkspace(state.workspace);
+  const meta = WORKSPACE_META[workspace] || WORKSPACE_META.schedule;
+  state.workspace = workspace;
+  document.body.dataset.workspace = workspace;
+
+  if (elements.heroWorkspaceLabel) elements.heroWorkspaceLabel.textContent = meta.eyebrow;
+  if (elements.heroWorkspaceTitle) elements.heroWorkspaceTitle.textContent = meta.title;
+  if (elements.heroWorkspaceDescription) elements.heroWorkspaceDescription.textContent = meta.description;
+
+  elements.workspaceButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.workspaceButton === workspace);
+    button.setAttribute("aria-pressed", button.dataset.workspaceButton === workspace ? "true" : "false");
+  });
 }
 
 function renderLegend() {
@@ -3512,6 +3569,7 @@ function syncControls() {
   elements.exportProfile.value = state.exportProfile;
   elements.dayFilter.value = state.selectedDay;
   elements.channelFilter.value = state.selectedChannelId;
+  renderWorkspaceChrome();
 }
 
 function exportSchedule(format) {
@@ -3598,6 +3656,7 @@ function exportInternalSchedulerJson() {
     channels: state.channels,
     items: state.items,
     view: {
+      workspace: state.workspace,
       viewMode: state.viewMode,
       timelineScale: state.timelineScale,
       selectedDay: state.selectedDay,
@@ -3847,6 +3906,7 @@ function normalizeState(parsed) {
 
   if (Array.isArray(parsed.channels) && parsed.channels.length > 0) {
     return {
+      workspace: normalizeWorkspace(parsed.workspace),
       viewMode: parsed.viewMode || "timeline",
       timelineScale: parsed.timelineScale || "day",
       colorMode: parsed.colorMode || "channel",
@@ -3870,6 +3930,7 @@ function normalizeState(parsed) {
     const channels = structuredClone(DEFAULT_CHANNELS);
     const map = new Map(channels.map((channel) => [channel.name, channel.id]));
     return {
+      workspace: normalizeWorkspace(parsed.workspace),
       viewMode: "timeline",
       timelineScale: "day",
       colorMode: parsed.colorMode || "channel",
@@ -3902,6 +3963,10 @@ function normalizeState(parsed) {
   }
 
   return fallback;
+}
+
+function normalizeWorkspace(workspace) {
+  return Object.prototype.hasOwnProperty.call(WORKSPACE_META, workspace) ? workspace : "schedule";
 }
 
 function normalizeItems(items, channels) {
