@@ -106,15 +106,44 @@
               </label>
             </div>
 
-            <label class="field">
-              <span>Tagline</span>
-              <input id="channelTagline" name="channelTagline" type="text" placeholder="Flagship entertainment feed" />
-            </label>
+              <label class="field">
+                <span>Tagline</span>
+                <input id="channelTagline" name="channelTagline" type="text" placeholder="Flagship entertainment feed" />
+              </label>
 
-            <div class="button-row">
-              <button type="submit" class="button primary">Save Channel</button>
-              <button type="button" id="resetChannelForm" class="button secondary">Reset</button>
-            </div>
+              <label class="flag-toggle channel-toggle">
+                <input id="channelMultiLogoMode" name="channelMultiLogoMode" type="checkbox" />
+                <span>Use multi-logo mode</span>
+              </label>
+              <div id="channelMultiLogoPanel" class="conditional-panel" hidden>
+                <label
+                  class="field"
+                  title="FS42 expects multi_logo to be a string profile name, such as main_rotation. Leave multi-logo mode off to omit it."
+                >
+                  <span>multi_logo profile</span>
+                  <input
+                    id="channelMultiLogoProfile"
+                    name="channelMultiLogoProfile"
+                    type="text"
+                    placeholder="main_rotation"
+                    list="multiLogoProfiles"
+                  />
+                  <small class="field-help">
+                    Use a stable profile name like <code>main_rotation</code>. If the toggle is off, the exporter will
+                    leave <code>multi_logo</code> empty.
+                  </small>
+                </label>
+                <datalist id="multiLogoProfiles">
+                  <option value="main_rotation"></option>
+                  <option value="brand_loop"></option>
+                  <option value="news_cycle"></option>
+                </datalist>
+              </div>
+
+              <div class="button-row">
+                <button type="submit" class="button primary">Save Channel</button>
+                <button type="button" id="resetChannelForm" class="button secondary">Reset</button>
+              </div>
           </form>
 
           <div id="channelList" class="channel-list"></div>

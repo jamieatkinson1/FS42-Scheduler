@@ -70,6 +70,9 @@ const elements = {
   channelName: document.getElementById("channelName"),
   channelGroup: document.getElementById("channelGroup"),
   channelTagline: document.getElementById("channelTagline"),
+  channelMultiLogoMode: document.getElementById("channelMultiLogoMode"),
+  channelMultiLogoPanel: document.getElementById("channelMultiLogoPanel"),
+  channelMultiLogoProfile: document.getElementById("channelMultiLogoProfile"),
   channelColor: document.getElementById("channelColor"),
   resetChannelForm: document.getElementById("resetChannelForm"),
   channelList: document.getElementById("channelList"),
@@ -163,13 +166,15 @@ function init() {
   render();
 }
 
-function createChannel(name, group, color, tagline) {
+function createChannel(name, group, color, tagline, multiLogoMode = false, multiLogoProfile = "") {
   return {
     id: crypto.randomUUID(),
     name,
     group,
     color,
     tagline,
+    multiLogoMode,
+    multiLogoProfile,
   };
 }
 
@@ -268,6 +273,7 @@ function bindEvents() {
   elements.duplicateItem.addEventListener("click", () => duplicateActiveItem());
   elements.channelForm.addEventListener("submit", handleChannelSubmit);
   elements.resetChannelForm.addEventListener("click", resetChannelForm);
+  elements.channelMultiLogoMode.addEventListener("change", syncChannelMultiLogoControls);
   elements.seedButton.addEventListener("click", () => {
     state = createDefaultState();
     syncControls();
@@ -352,12 +358,16 @@ function handleItemSubmit(event) {
 
 function handleChannelSubmit(event) {
   event.preventDefault();
+  const multiLogoMode = Boolean(elements.channelMultiLogoMode.checked);
+  const multiLogoProfile = elements.channelMultiLogoProfile.value.trim();
   const channel = {
     id: elements.channelId.value || crypto.randomUUID(),
     name: elements.channelName.value.trim(),
     group: elements.channelGroup.value.trim(),
     color: elements.channelColor.value,
     tagline: elements.channelTagline.value.trim(),
+    multiLogoMode,
+    multiLogoProfile: multiLogoMode ? multiLogoProfile : "",
   };
 
   const index = state.channels.findIndex((entry) => entry.id === channel.id);
@@ -419,6 +429,15 @@ function resetChannelForm() {
   elements.channelForm.reset();
   elements.channelId.value = "";
   elements.channelColor.value = state.channels[0]?.color || "#ff8a5b";
+  elements.channelMultiLogoMode.checked = false;
+  elements.channelMultiLogoProfile.value = "";
+  syncChannelMultiLogoControls();
+}
+
+function syncChannelMultiLogoControls() {
+  const enabled = Boolean(elements.channelMultiLogoMode.checked);
+  if (elements.channelMultiLogoPanel) elements.channelMultiLogoPanel.hidden = !enabled;
+  if (elements.channelMultiLogoProfile) elements.channelMultiLogoProfile.disabled = !enabled;
 }
 
 function render() {
@@ -1401,16 +1420,19 @@ function renderChannelList() {
   elements.channelList.innerHTML = "";
   state.channels.forEach((channel) => {
     const row = document.createElement("article");
-    row.className = "channel-card";
-    row.innerHTML = `
-      <div class="channel-card-main">
-        <span class="channel-swatch" style="background:${channel.color}"></span>
-        <div>
-          <strong>${channel.name}</strong>
-          <p>${channel.group || "Ungrouped"} | ${channel.tagline || "No tagline set"}</p>
+      row.className = "channel-card";
+      const multiLogoLabel = channel.multiLogoMode
+        ? `Multi-logo: ${channel.multiLogoProfile || "profile required"}`
+        : "Multi-logo: off";
+      row.innerHTML = `
+        <div class="channel-card-main">
+          <span class="channel-swatch" style="background:${channel.color}"></span>
+          <div>
+            <strong>${channel.name}</strong>
+            <p>${channel.group || "Ungrouped"} | ${channel.tagline || "No tagline set"} | ${multiLogoLabel}</p>
+          </div>
         </div>
-      </div>
-    `;
+      `;
 
     const actions = document.createElement("div");
     actions.className = "card-actions";
@@ -1635,6 +1657,9 @@ function hydrateChannelForm(channelId) {
   elements.channelGroup.value = channel.group || "";
   elements.channelTagline.value = channel.tagline || "";
   elements.channelColor.value = channel.color;
+  elements.channelMultiLogoMode.checked = Boolean(channel.multiLogoMode);
+  elements.channelMultiLogoProfile.value = channel.multiLogoProfile || "";
+  syncChannelMultiLogoControls();
 }
 
 function deleteItem(itemId) {
@@ -1954,6 +1979,13 @@ function validateFs42NativeExport() {
   state.channels.forEach((channel, index) => {
     const channelNumber = index + 1;
     const channelItems = state.items.filter((item) => item.channelId === channel.id);
+    if (channel.multiLogoMode && !String(channel.multiLogoProfile || "").trim()) {
+      nativeErrors.push({
+        title: channel.name || `Channel ${channelNumber}`,
+        message: "multi_logo profile name is required when multi-logo mode is on.",
+        channelId: channel.id,
+      });
+    }
     const payload = buildFs42NativeExportPayload(channel, channelItems, channelNumber);
     const issues = validateFs42NativePayload(payload, channel, channelNumber);
     issues.forEach((issue) => {
@@ -3226,7 +3258,7 @@ function buildFs42NativeStationConfig(channel, channelItems, channelNumber) {
     show_logo: true,
     default_logo: `${baseName}.png`,
     logo_permanent: true,
-    multi_logo: false,
+    multi_logo: channel.multiLogoMode ? String(channel.multiLogoProfile || "").trim() : "",
     ...daySchedules,
   };
 }
@@ -3321,6 +3353,12 @@ function validateFs42NativePayload(payload, channel, channelNumber) {
     }
   });
   ["show_logo", "logo_permanent", "multi_logo"].forEach((field) => {
+    if (field === "multi_logo") {
+      if (field in stationConf && typeof stationConf[field] !== "string") {
+        issues.push({ title: baseTitle, message: `${field} must be a string when provided.` });
+      }
+      return;
+    }
     if (field in stationConf && typeof stationConf[field] !== "boolean") {
       issues.push({ title: baseTitle, message: `${field} must be boolean when provided.` });
     }
@@ -3427,6 +3465,8 @@ function normalizeState(parsed) {
         group: channel.group || "",
         color: channel.color || "#7d91b9",
         tagline: channel.tagline || "",
+        multiLogoMode: Boolean(channel.multiLogoMode),
+        multiLogoProfile: channel.multiLogoProfile || "",
       })),
       items: normalizeItems(parsed.items || parsed.shows || [], parsed.channels),
     };

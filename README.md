@@ -62,6 +62,7 @@ python -m http.server 8000
 - `FS42 station config` exports one FieldStation42-compatible `station_conf` JSON file per channel and blocks export when the generated config is invalid.
 - Commercial items are planned in the workspace but excluded from the per-channel schedule payload.
 - If a channel contains commercial material, the exported station config sets `commercial_free: false` and keeps the commercial directories available.
+- `Use multi-logo mode` controls whether the exporter writes a string `multi_logo` profile name or leaves it empty.
 
 ## Suggested Operating Pattern
 
