@@ -34,7 +34,7 @@ const WORKSPACE_META = {
   channels: {
     eyebrow: "Channel Setup",
     title: "FS42 Station Config",
-    description: "Edit the station_conf header values that shape each channel before export.",
+    description: "Edit the FS42 station_conf values that define each channel before export.",
   },
   review: {
     eyebrow: "Review Board",
@@ -49,10 +49,10 @@ const WORKSPACE_META = {
   help: {
     eyebrow: "Help / Settings",
     title: "Quick Workflow Guide",
-    description: "Short workflow notes and lightweight settings for a local-first scheduler workspace.",
+    description: "Short workflow notes, display settings, and local-first guidance.",
   },
 };
-const DEFAULT_COLLAPSED_SECTIONS = {
+const DEFAULT_SECTION_OPEN_STATE = {
   "planning-controls": false,
   "colour-legend": false,
   "channel-identity": true,
@@ -63,6 +63,7 @@ const DEFAULT_COLLAPSED_SECTIONS = {
   "review-notes": false,
   "export-notes": false,
   "help-workflow": false,
+  "help-appearance": false,
 };
 const DAY_START = 6 * 60;
 const DAY_END = 24 * 60;
@@ -158,6 +159,7 @@ const elements = {
   exportCsv: document.getElementById("exportCsv"),
   exportJson: document.getElementById("exportJson"),
   collapsiblePanels: Array.from(document.querySelectorAll("[data-collapsible]")),
+  themeMode: document.getElementById("themeMode"),
 };
 
 const dragState = {
@@ -250,6 +252,7 @@ function init() {
   bindEvents();
   if (DEBUG_TIMELINE_DND) initTimelineDebugPanel();
   syncControls();
+  syncTheme();
   syncCollapsibleSections();
   resetItemForm();
   resetChannelForm();
@@ -353,9 +356,10 @@ function createDefaultState() {
     timelineScale: "day",
     colorMode: "channel",
     exportProfile: "fs42-native",
+    theme: "dark",
     selectedDay: "Monday",
     selectedChannelId: "all",
-    collapsedSections: getDefaultCollapsedSections(),
+    sectionOpenState: getDefaultSectionOpenState(),
     channels,
     items: seedStrategicOrders([
       createItem("FS42 Breakfast Live", "Programme", "Entertainment", channels[0].id, "Monday", "06:00", 180, "High", "Morning studio", "FS42-MAIN-001", {}, "Live breakfast block."),
@@ -536,6 +540,7 @@ function bindEvents() {
   });
   elements.exportCsv.addEventListener("click", () => exportSchedule("csv"));
   elements.exportJson.addEventListener("click", () => exportSchedule("json"));
+  elements.themeMode?.addEventListener("change", handleThemeChange);
   elements.collapsiblePanels.forEach((panel) => {
     panel.addEventListener("toggle", handleCollapsibleToggle);
   });
@@ -574,14 +579,20 @@ function handleWorkspaceChange(workspace) {
   persistAndRender();
 }
 
+function handleThemeChange(event) {
+  state.theme = normalizeTheme(event.target.value);
+  syncTheme();
+  persistState();
+}
+
 function handleCollapsibleToggle(event) {
   const panel = event.currentTarget;
   const id = panel?.dataset?.collapsibleId;
   if (!id) return;
 
-  state.collapsedSections = {
-    ...getDefaultCollapsedSections(),
-    ...normalizeCollapsedSections(state.collapsedSections),
+  state.sectionOpenState = {
+    ...getDefaultSectionOpenState(),
+    ...normalizeSectionOpenState(state.sectionOpenState),
     [id]: Boolean(panel.open),
   };
   persistState();
@@ -725,6 +736,7 @@ function syncChannelMultiLogoControls() {
 function render() {
   renderWorkspaceChrome();
   syncCollapsibleSections();
+  syncTheme();
   refreshChannelSelects();
   renderLegend();
   renderPlanner();
@@ -753,12 +765,12 @@ function renderWorkspaceChrome() {
   });
 }
 
-function getDefaultCollapsedSections() {
-  return { ...DEFAULT_COLLAPSED_SECTIONS };
+function getDefaultSectionOpenState() {
+  return { ...DEFAULT_SECTION_OPEN_STATE };
 }
 
-function normalizeCollapsedSections(value = {}) {
-  const defaults = getDefaultCollapsedSections();
+function normalizeSectionOpenState(value = {}) {
+  const defaults = getDefaultSectionOpenState();
   const normalized = { ...defaults };
 
   Object.entries(value || {}).forEach(([key, entry]) => {
@@ -772,13 +784,22 @@ function normalizeCollapsedSections(value = {}) {
 
 function syncCollapsibleSections() {
   const sections = elements.collapsiblePanels.length > 0 ? elements.collapsiblePanels : Array.from(document.querySelectorAll("[data-collapsible]"));
-  const collapsedSections = normalizeCollapsedSections(state.collapsedSections);
+  const sectionOpenState = normalizeSectionOpenState(state.sectionOpenState);
 
   sections.forEach((panel) => {
     const id = panel.dataset.collapsibleId;
     if (!id) return;
-    panel.open = Boolean(collapsedSections[id]);
+    panel.open = Boolean(sectionOpenState[id]);
   });
+}
+
+function syncTheme() {
+  const theme = normalizeTheme(state.theme);
+  state.theme = theme;
+  document.body.dataset.theme = theme;
+  if (elements.themeMode && elements.themeMode.value !== theme) {
+    elements.themeMode.value = theme;
+  }
 }
 
 function renderLegend() {
@@ -4048,6 +4069,7 @@ function syncControls() {
   elements.exportProfile.value = state.exportProfile;
   elements.dayFilter.value = state.selectedDay;
   elements.channelFilter.value = state.selectedChannelId;
+  if (elements.themeMode) elements.themeMode.value = normalizeTheme(state.theme);
   renderWorkspaceChrome();
 }
 
@@ -4426,9 +4448,10 @@ function normalizeState(parsed) {
       timelineScale: parsed.timelineScale || "day",
       colorMode: parsed.colorMode || "channel",
       exportProfile: normalizeExportProfile(parsed.exportProfile),
+      theme: normalizeTheme(parsed.theme),
       selectedDay: parsed.selectedDay || "Monday",
       selectedChannelId: parsed.selectedChannelId || "all",
-      collapsedSections: normalizeCollapsedSections(parsed.collapsedSections),
+      sectionOpenState: normalizeSectionOpenState(parsed.sectionOpenState || parsed.collapsedSections),
       channels: normalizeChannels(parsed.channels),
       items: seedStrategicOrders(normalizeItems(parsed.items || parsed.shows || [], parsed.channels)),
     };
@@ -4443,9 +4466,10 @@ function normalizeState(parsed) {
       timelineScale: "day",
       colorMode: parsed.colorMode || "channel",
       exportProfile: normalizeExportProfile(parsed.exportProfile),
+      theme: normalizeTheme(parsed.theme),
       selectedDay: parsed.selectedDay || "Monday",
       selectedChannelId: "all",
-      collapsedSections: normalizeCollapsedSections(parsed.collapsedSections),
+      sectionOpenState: normalizeSectionOpenState(parsed.sectionOpenState || parsed.collapsedSections),
       channels,
       items: seedStrategicOrders(parsed.shows.map((show) => ({
         id: show.id || crypto.randomUUID(),
@@ -4476,6 +4500,10 @@ function normalizeState(parsed) {
 
 function normalizeWorkspace(workspace) {
   return Object.prototype.hasOwnProperty.call(WORKSPACE_META, workspace) ? workspace : "schedule";
+}
+
+function normalizeTheme(theme) {
+  return theme === "light" ? "light" : "dark";
 }
 
 function normalizeItems(items, channels) {

@@ -13,7 +13,7 @@
           <p class="eyebrow">Single-user network planner</p>
           <h1>FS42 Scheduler</h1>
           <p class="lede">
-            Browser-based planning workspace for schedule, station config, review, and export.
+            Browser-based workspace for schedule planning, channel config, review, and FS42 export.
           </p>
         </div>
 
@@ -29,7 +29,7 @@
             </button>
             <button type="button" class="workspace-button" data-workspace-button="channels" title="Channel configuration and station_conf settings">
               <strong>Channels</strong>
-              <small>FS42 channel config</small>
+              <small>Station config editor</small>
             </button>
             <button type="button" class="workspace-button" data-workspace-button="review" title="Table audit view and readiness notes">
               <strong>Review</strong>
@@ -37,11 +37,11 @@
             </button>
             <button type="button" class="workspace-button" data-workspace-button="export" title="Export profiles, blockers, and JSON / CSV actions">
               <strong>Export</strong>
-              <small>Handoff and output</small>
+              <small>Readiness and output</small>
             </button>
             <button type="button" class="workspace-button" data-workspace-button="help" title="Quick guidance and lightweight settings">
               <strong>Help / Settings</strong>
-              <small>Workflow notes</small>
+              <small>Workflow and theme</small>
             </button>
           </div>
         </nav>
@@ -50,7 +50,7 @@
           <summary class="section-heading collapsible-summary">
             <div>
               <h2>Planning Controls</h2>
-              <span>Set the view, planning scope, and colour logic</span>
+              <span>View, scope, and colour logic</span>
             </div>
           </summary>
 
@@ -117,7 +117,7 @@
         <section class="panel channel-panel workspace-channels">
           <div class="section-heading">
             <h2>Channels</h2>
-            <span>Name, group and colour your lineup</span>
+            <span>Station config editor for channel setup and export rules</span>
           </div>
 
           <form id="channelForm" class="channel-config-form">
@@ -127,7 +127,7 @@
               <summary class="section-heading compact collapsible-summary">
                 <div>
                   <h3>Identity</h3>
-                  <span>Network name, number, grouping, and visual identity</span>
+                  <span>Channel identity, number, and base identity</span>
                 </div>
               </summary>
               <div class="collapsible-body">
@@ -167,7 +167,7 @@
               <summary class="section-heading compact collapsible-summary">
                 <div>
                   <h3>Schedule behaviour</h3>
-                  <span>Core timing and break behaviour for this channel</span>
+                  <span>Timing and break rules written into station_conf</span>
                 </div>
               </summary>
               <div class="collapsible-body">
@@ -208,7 +208,7 @@
               <summary class="section-heading compact collapsible-summary">
                 <div>
                   <h3>Content sources</h3>
-                  <span>Directories and clip show references used by FS42</span>
+                  <span>Optional content directories and clip-show lists</span>
                 </div>
               </summary>
               <div class="collapsible-body">
@@ -240,7 +240,7 @@
               <summary class="section-heading compact collapsible-summary">
                 <div>
                   <h3>Runtime assets</h3>
-                  <span>Media files used for sign-off, standby, and be-right-back states</span>
+                  <span>Fallback media and off-air assets</span>
                 </div>
               </summary>
               <div class="collapsible-body">
@@ -271,7 +271,7 @@
               <summary class="section-heading compact collapsible-summary">
                 <div>
                   <h3>Advanced</h3>
-                  <span>Logo configuration and multi-logo behaviour</span>
+                  <span>Logo settings and multi-logo behaviour</span>
                 </div>
               </summary>
               <div class="collapsible-body">
@@ -518,26 +518,43 @@
 
         <details class="panel help-panel workspace-help" data-collapsible data-collapsible-id="help-workflow">
           <summary class="legend-header collapsible-summary">
-            <h2>How to use this</h2>
-            <span>Quick FS42 workflow</span>
+            <h2>Workflow</h2>
+            <span>Workspace flow</span>
           </summary>
           <div class="collapsible-body help-steps">
             <article>
               <strong>1. Schedule</strong>
-              <p>Use the timeline to place and shape blocks across the day.</p>
+              <p>Use the timeline to place, drag, and resize blocks.</p>
             </article>
             <article>
               <strong>2. Channels</strong>
-              <p>Edit station_conf settings per channel before export.</p>
+              <p>Edit station_conf settings for each channel before export.</p>
             </article>
             <article>
               <strong>3. Review</strong>
-              <p>Check the table, conflicts, and validation notes.</p>
+              <p>Check the table, conflicts, and readiness notes.</p>
             </article>
             <article>
               <strong>4. Export</strong>
               <p>Pick the profile, resolve blockers, and hand off the files.</p>
             </article>
+          </div>
+        </details>
+
+        <details class="panel settings-panel workspace-help" data-collapsible data-collapsible-id="help-appearance">
+          <summary class="legend-header collapsible-summary">
+            <h2>Settings</h2>
+            <span>Appearance</span>
+          </summary>
+          <div class="collapsible-body">
+            <label class="field">
+              <span>UI theme</span>
+              <select id="themeMode">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+              </select>
+              <small class="field-help">Choose a calmer dark UI or a clearer light UI for the same local-first scheduler.</small>
+            </label>
           </div>
         </details>
 

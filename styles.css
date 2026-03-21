@@ -41,6 +41,115 @@ body::before {
   mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
 }
 
+body[data-theme="light"] {
+  --bg: #eef3f9;
+  --panel: rgba(255, 255, 255, 0.86);
+  --panel-strong: rgba(255, 255, 255, 0.95);
+  --border: rgba(18, 32, 51, 0.1);
+  --border-strong: rgba(18, 32, 51, 0.16);
+  --text: #132033;
+  --muted: #5e6b7f;
+  --warm: #b86e3a;
+  --accent: #2c8fa1;
+  --shadow: 0 12px 24px rgba(18, 32, 51, 0.1);
+  color: #122033;
+  background:
+    radial-gradient(circle at top left, rgba(92, 135, 214, 0.15), transparent 24%),
+    radial-gradient(circle at top right, rgba(255, 164, 118, 0.12), transparent 20%),
+    linear-gradient(145deg, #eef3f9 0%, #f6f8fc 48%, #e6edf7 100%);
+}
+
+body[data-theme="light"]::before {
+  background-image:
+    linear-gradient(rgba(18, 32, 51, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 32, 51, 0.03) 1px, transparent 1px);
+}
+
+body[data-theme="light"] .panel,
+body[data-theme="light"] .brand-card {
+  background: var(--panel);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+body[data-theme="light"] .hero,
+body[data-theme="light"] .help-panel,
+body[data-theme="light"] .settings-panel,
+body[data-theme="light"] .channel-section,
+body[data-theme="light"] .mini-stat,
+body[data-theme="light"] .export-readiness {
+  background: var(--panel-strong);
+  border-color: var(--border);
+}
+
+body[data-theme="light"] .workspace-button {
+  background: rgba(18, 32, 51, 0.03);
+  border-color: rgba(18, 32, 51, 0.08);
+}
+
+body[data-theme="light"] .workspace-button.is-active {
+  background: linear-gradient(135deg, rgba(102, 178, 212, 0.16), rgba(231, 129, 84, 0.1));
+  border-color: rgba(102, 178, 212, 0.35);
+}
+
+body[data-theme="light"] input,
+body[data-theme="light"] select,
+body[data-theme="light"] textarea {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(18, 32, 51, 0.14);
+  color: var(--text);
+}
+
+body[data-theme="light"] .timeline-shell,
+body[data-theme="light"] .table-shell {
+  background: rgba(250, 252, 255, 0.98);
+  border-color: var(--border);
+}
+
+body[data-theme="light"] .lane-label,
+body[data-theme="light"] .header-label,
+body[data-theme="light"] .timeline-header {
+  background: rgba(250, 252, 255, 0.98);
+  border-right-color: var(--border);
+}
+
+body[data-theme="light"] .hour-cell,
+body[data-theme="light"] .board-cell-header {
+  color: var(--text);
+  border-left-color: rgba(18, 32, 51, 0.08);
+}
+
+body[data-theme="light"] .time-scale,
+body[data-theme="light"] .day-lane {
+  background:
+    linear-gradient(90deg, rgba(18, 32, 51, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 32, 51, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 32, 51, 0.035) 1px, transparent 1px);
+}
+
+body[data-theme="light"] .day-lane {
+  background:
+    linear-gradient(90deg, rgba(18, 32, 51, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 32, 51, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 32, 51, 0.035) 1px, transparent 1px),
+    linear-gradient(rgba(18, 32, 51, 0.04) 1px, transparent 1px);
+}
+
+body[data-theme="light"] .day-lane.drop-target {
+  background-color: rgba(102, 178, 212, 0.08);
+}
+
+body[data-theme="light"] .schedule-block {
+  border-color: rgba(18, 32, 51, 0.14);
+  box-shadow: 0 8px 14px rgba(18, 32, 51, 0.12);
+}
+
+body[data-theme="light"] .show-card,
+body[data-theme="light"] .channel-card {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(18, 32, 51, 0.08);
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 334px minmax(0, 1fr);
@@ -252,19 +361,6 @@ body[data-workspace="channels"] .app-shell {
 .channel-section .section-heading h3 {
   margin: 0;
   font-size: 0.96rem;
-}
-
-.channel-section .section-heading h3::after {
-  content: ">";
-  display: inline-block;
-  margin-left: 8px;
-  color: var(--muted);
-  transition: transform 160ms ease, color 160ms ease;
-}
-
-.channel-section[open] .section-heading h3::after {
-  content: "v";
-  color: var(--text);
 }
 
 .channel-form-actions {
@@ -491,13 +587,15 @@ textarea {
   gap: 12px;
 }
 
-.help-panel {
+.help-panel,
+.settings-panel {
   padding: 0;
   overflow: hidden;
   background: rgba(12, 19, 34, 0.94);
 }
 
-.help-panel summary {
+.help-panel summary,
+.settings-panel summary {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -509,16 +607,20 @@ textarea {
   border-bottom: 1px solid rgba(148, 172, 216, 0.12);
 }
 
-.help-panel summary::-webkit-details-marker {
+.help-panel summary::-webkit-details-marker,
+.settings-panel summary::-webkit-details-marker {
   display: none;
 }
 
-.help-panel[open] summary {
+.help-panel[open] summary,
+.settings-panel[open] summary {
   border-bottom-color: rgba(148, 172, 216, 0.18);
 }
 
 .help-panel summary h2,
 .help-panel summary h3,
+.settings-panel summary h2,
+.settings-panel summary h3,
 .legend-header h3 {
   color: var(--text);
   font-weight: 700;
@@ -526,6 +628,7 @@ textarea {
 }
 
 .help-panel summary span,
+.settings-panel summary span,
 .legend-header span {
   color: var(--muted);
   font-size: 0.82rem;
@@ -538,7 +641,8 @@ textarea {
   padding: 0;
 }
 
-.help-panel .collapsible-body {
+.help-panel .collapsible-body,
+.settings-panel .collapsible-body {
   padding: 14px 18px 18px;
 }
 
