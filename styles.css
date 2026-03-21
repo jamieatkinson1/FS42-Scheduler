@@ -8,7 +8,7 @@
   --muted: #9aaed1;
   --warm: #ffb066;
   --accent: #79e0d8;
-  --shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+  --shadow: 0 10px 22px rgba(0, 0, 0, 0.24);
   --hour-width: 72px;
   --day-width: 180px;
   --month-width: 240px;
@@ -35,8 +35,8 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
   background-size: 40px 40px;
   mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
 }
@@ -51,7 +51,7 @@ body[data-theme="light"] {
   --muted: #5e6b7f;
   --warm: #b86e3a;
   --accent: #2c8fa1;
-  --shadow: 0 12px 24px rgba(18, 32, 51, 0.1);
+  --shadow: 0 8px 18px rgba(18, 32, 51, 0.1);
   color: #122033;
   background:
     radial-gradient(circle at top left, rgba(92, 135, 214, 0.15), transparent 24%),
@@ -61,8 +61,8 @@ body[data-theme="light"] {
 
 body[data-theme="light"]::before {
   background-image:
-    linear-gradient(rgba(18, 32, 51, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(18, 32, 51, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(18, 32, 51, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 32, 51, 0.025) 1px, transparent 1px);
 }
 
 body[data-theme="light"] .panel,
@@ -153,7 +153,7 @@ body[data-theme="light"] .channel-card {
 .app-shell {
   display: grid;
   grid-template-columns: 334px minmax(0, 1fr);
-  gap: 18px;
+  gap: 14px;
   padding: 18px;
 }
 
@@ -164,7 +164,7 @@ body[data-workspace="channels"] .app-shell {
 .sidebar,
 .main-panel {
   display: grid;
-  gap: 16px;
+  gap: 12px;
   align-content: start;
 }
 
@@ -174,7 +174,7 @@ body[data-workspace="channels"] .app-shell {
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(4px);
 }
 
 .brand-card,
@@ -226,11 +226,11 @@ body[data-workspace="channels"] .app-shell {
 
 .section-heading {
   align-items: flex-end;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .section-heading.compact {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .workspace-nav {
@@ -247,7 +247,7 @@ body[data-workspace="channels"] .app-shell {
   display: grid;
   gap: 3px;
   width: 100%;
-  padding: 11px 12px;
+  padding: 10px 11px;
   border: 1px solid rgba(148, 172, 216, 0.12);
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.03);
@@ -339,7 +339,7 @@ body[data-workspace="channels"] .app-shell {
 .channel-section {
   display: grid;
   gap: 10px;
-  padding: 12px;
+  padding: 10px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(148, 172, 216, 0.08);
@@ -427,18 +427,18 @@ body[data-workspace="help"] .hero-export {
 .field {
   display: grid;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .controls-panel .field,
 .channel-panel .field,
 .form-panel .field {
   gap: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .field.export-profile-field {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .field span {
@@ -566,7 +566,7 @@ textarea {
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 14px;
+  gap: 12px;
   align-items: start;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -600,7 +600,7 @@ textarea {
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
-  padding: 14px 18px;
+  padding: 12px 16px;
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -643,11 +643,11 @@ textarea {
 
 .help-panel .collapsible-body,
 .settings-panel .collapsible-body {
-  padding: 14px 18px 18px;
+  padding: 12px 16px 16px;
 }
 
 .help-steps article {
-  padding: 12px 12px 13px;
+  padding: 11px 11px 12px;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.05);

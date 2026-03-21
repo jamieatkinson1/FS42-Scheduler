@@ -29,7 +29,7 @@ const WORKSPACE_META = {
   schedule: {
     eyebrow: "Planning Board",
     title: "Linear Channel Scheduling",
-    description: "Plan on the timeline first, then use table and export views only when the schedule is ready.",
+    description: "Plan on the timeline first, then use Review and Export when the schedule is ready.",
   },
   channels: {
     eyebrow: "Channel Setup",
@@ -49,7 +49,7 @@ const WORKSPACE_META = {
   help: {
     eyebrow: "Help / Settings",
     title: "Quick Workflow Guide",
-    description: "Short workflow notes, display settings, and local-first guidance.",
+    description: "Short workflow notes, theme settings, and local-first guidance.",
   },
 };
 const DEFAULT_SECTION_OPEN_STATE = {
@@ -715,7 +715,7 @@ function resetItemForm() {
   elements.duration.value = "60";
   elements.slot.value = "Prime Time";
   elements.formTitle.textContent = "Add Item";
-  elements.formHint.textContent = "Schedule programming, commercials, and bumpers";
+  elements.formHint.textContent = "Programming, commercials, and bumpers";
   updateItemValidationSummary();
 }
 

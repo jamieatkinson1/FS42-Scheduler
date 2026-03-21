@@ -25,11 +25,11 @@
           <div class="workspace-buttons">
             <button type="button" class="workspace-button is-active" data-workspace-button="schedule" title="Main planning timeline and item editing surface">
               <strong>Schedule</strong>
-              <small>Timeline planning workspace</small>
+              <small>Timeline planning</small>
             </button>
             <button type="button" class="workspace-button" data-workspace-button="channels" title="Channel configuration and station_conf settings">
               <strong>Channels</strong>
-              <small>Station config editor</small>
+              <small>Station config</small>
             </button>
             <button type="button" class="workspace-button" data-workspace-button="review" title="Table audit view and readiness notes">
               <strong>Review</strong>
@@ -50,7 +50,7 @@
           <summary class="section-heading collapsible-summary">
             <div>
               <h2>Planning Controls</h2>
-              <span>View, scope, and colour logic</span>
+              <span>View, scope, colour logic</span>
             </div>
           </summary>
 
@@ -117,7 +117,7 @@
         <section class="panel channel-panel workspace-channels">
           <div class="section-heading">
             <h2>Channels</h2>
-            <span>Station config editor for channel setup and export rules</span>
+            <span>Station config editor for each channel</span>
           </div>
 
           <form id="channelForm" class="channel-config-form">
@@ -127,7 +127,7 @@
               <summary class="section-heading compact collapsible-summary">
                 <div>
                   <h3>Identity</h3>
-                  <span>Channel identity, number, and base identity</span>
+                  <span>Name, number, group, and colour</span>
                 </div>
               </summary>
               <div class="collapsible-body">
@@ -208,7 +208,7 @@
               <summary class="section-heading compact collapsible-summary">
                 <div>
                   <h3>Content sources</h3>
-                  <span>Optional content directories and clip-show lists</span>
+                  <span>Directories and clip-show lists used by FS42</span>
                 </div>
               </summary>
               <div class="collapsible-body">
@@ -271,7 +271,7 @@
               <summary class="section-heading compact collapsible-summary">
                 <div>
                   <h3>Advanced</h3>
-                  <span>Logo settings and multi-logo behaviour</span>
+                  <span>Logo settings and multi-logo mode</span>
                 </div>
               </summary>
               <div class="collapsible-body">
@@ -339,7 +339,7 @@
         <section class="panel form-panel workspace-schedule">
           <div class="section-heading">
             <h2 id="formTitle">Add Item</h2>
-            <span id="formHint">Schedule programming, commercials, and bumpers</span>
+            <span id="formHint">Programming, commercials, and bumpers</span>
           </div>
 
           <form id="showForm">
@@ -472,7 +472,7 @@
             <p class="eyebrow" id="heroWorkspaceLabel">Planning Board</p>
             <h2 id="heroWorkspaceTitle">Linear Channel Scheduling</h2>
             <p id="heroWorkspaceDescription">
-              Use Schedule for placement, Channels for station config, Review for audit, and Export for handoff.
+              Use Schedule to place blocks, Channels to edit station config, Review to inspect, and Export to hand off.
             </p>
           </div>
 
@@ -524,11 +524,11 @@
           <div class="collapsible-body help-steps">
             <article>
               <strong>1. Schedule</strong>
-              <p>Use the timeline to place, drag, and resize blocks.</p>
+              <p>Place, drag, and resize blocks in the timeline.</p>
             </article>
             <article>
               <strong>2. Channels</strong>
-              <p>Edit station_conf settings for each channel before export.</p>
+              <p>Edit station_conf values for each channel before export.</p>
             </article>
             <article>
               <strong>3. Review</strong>
@@ -536,7 +536,7 @@
             </article>
             <article>
               <strong>4. Export</strong>
-              <p>Pick the profile, resolve blockers, and hand off the files.</p>
+              <p>Pick the profile, clear blockers, and export the files.</p>
             </article>
           </div>
         </details>
@@ -544,7 +544,7 @@
         <details class="panel settings-panel workspace-help" data-collapsible data-collapsible-id="help-appearance">
           <summary class="legend-header collapsible-summary">
             <h2>Settings</h2>
-            <span>Appearance</span>
+            <span>Light / dark mode</span>
           </summary>
           <div class="collapsible-body">
             <label class="field">
@@ -599,7 +599,7 @@
           <section class="panel list-panel">
             <div class="section-heading">
               <h2>Review Board</h2>
-              <span>Programmes, ad breaks, spots, bumpers, and promos</span>
+              <span>Programming, ad breaks, spots, bumpers, and promos</span>
             </div>
             <div id="showList" class="show-list"></div>
           </section>
@@ -608,7 +608,7 @@
             <summary class="section-heading collapsible-summary">
               <div>
                 <h2>Readiness Notes</h2>
-                <span>Warnings, gaps, and export context</span>
+                <span>Warnings and export context</span>
               </div>
             </summary>
             <div class="collapsible-body">
