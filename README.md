@@ -23,7 +23,7 @@ FS42 Scheduler is a lightweight, single-user planning utility for building linea
 - Operational flags: watershed restricted, prime time, and must-run
 - Validation and export-readiness feedback
 - Table view for review and audit work
-- Export profiles for `Internal scheduler JSON` and `FS42 JSON (strict)`
+- Export profiles for `Internal scheduler JSON` and `FS42 station config`
 - CSV export for spreadsheet review
 - Local `localStorage` persistence
 - Duplicate item and keyboard nudge shortcuts
@@ -59,9 +59,9 @@ python -m http.server 8000
 ## Export Profiles
 
 - `Internal scheduler JSON` is the more permissive export option for working drafts or local review.
-- `FS42 JSON (strict)` enforces stricter validation and blocks export when required data is missing or unsafe.
+- `FS42 station config` exports one FieldStation42-compatible `station_conf` JSON file per channel and blocks export when the generated config is invalid.
 - Commercial items are planned in the workspace but excluded from the per-channel schedule payload.
-- If a channel contains commercial material, the exported channel JSON marks that channel with `commercial: true`.
+- If a channel contains commercial material, the exported station config sets `commercial_free: false` and keeps the commercial directories available.
 
 ## Suggested Operating Pattern
 

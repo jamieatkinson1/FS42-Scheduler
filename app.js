@@ -219,7 +219,7 @@ function createDefaultState() {
     viewMode: "timeline",
     timelineScale: "day",
     colorMode: "channel",
-    exportProfile: "fs42-strict",
+    exportProfile: "fs42-native",
     selectedDay: "Monday",
     selectedChannelId: "all",
     channels,
@@ -291,7 +291,7 @@ function handleControlChange(event) {
   if (event.target === elements.viewMode) state.viewMode = event.target.value;
   if (event.target === elements.timelineScale) state.timelineScale = event.target.value;
   if (event.target === elements.colorMode) state.colorMode = event.target.value;
-  if (event.target === elements.exportProfile) state.exportProfile = event.target.value;
+  if (event.target === elements.exportProfile) state.exportProfile = normalizeExportProfile(event.target.value);
   if (event.target === elements.dayFilter) state.selectedDay = event.target.value;
   if (event.target === elements.channelFilter) state.selectedChannelId = event.target.value;
   syncControls();
@@ -1477,14 +1477,14 @@ function renderStats() {
 function syncExportControls() {
   elements.exportProfile.value = state.exportProfile;
   elements.exportJson.textContent =
-    state.exportProfile === "internal" ? "Export Internal JSON" : "Export Channel JSON";
+    state.exportProfile === "internal" ? "Export Internal JSON" : "Export FS42 Native JSON";
   renderExportReadiness();
 }
 
 function renderExportReadiness() {
-  const validation = validateSchedule(state.exportProfile);
+  const validation = state.exportProfile === "internal" ? validateSchedule("internal") : validateFs42NativeExport();
   const readiness = elements.exportReadiness;
-  const label = state.exportProfile === "internal" ? "Internal scheduler JSON" : "FS42 JSON (strict)";
+  const label = state.exportProfile === "internal" ? "Internal scheduler JSON" : "FS42 station config";
   const blockerCount = validation.blockers.length;
   const warningCount = validation.warnings.length;
   const items = blockerCount > 0 ? validation.blockers : validation.warnings;
@@ -1808,6 +1808,10 @@ function getSafeDuration(value, itemType = "Programme") {
   return Math.max(5, parsed);
 }
 
+function normalizeExportProfile(value) {
+  return value === "internal" ? "internal" : "fs42-native";
+}
+
 function clampPlanningMinutes(minutes, fallback = DAY_START) {
   const parsed = Number(minutes);
   const safe = Number.isFinite(parsed) ? parsed : fallback;
@@ -1836,7 +1840,7 @@ function getStatusClass(issues) {
 
 function validateItem(item, allItems = state.items, profile = state.exportProfile) {
   const issues = [];
-  const strict = profile === "fs42-strict";
+  const strict = profile === "fs42-native";
   const exportedItem = !ITEM_TYPE_META[item.itemType]?.commercial;
   const title = String(item.title || "").trim();
   const channelValid = state.channels.some((channel) => channel.id === item.channelId);
@@ -1878,9 +1882,7 @@ function validateItem(item, allItems = state.items, profile = state.exportProfil
       });
     }
   }
-  if (strict && exportedItem && !assetCode) {
-    issues.push({ severity: "blocker", code: "assetCode", message: "Export code is required for FS42 strict export." });
-  } else if (!assetCode) {
+  if (!assetCode) {
     issues.push({ severity: "warning", code: "assetCode", message: "Export code is missing." });
   }
 
@@ -1923,8 +1925,11 @@ function validateSchedule(profile = state.exportProfile) {
   const blockers = [];
   const warnings = [];
 
-  state.items.forEach((item) => {
-    const issues = validateItem(item, state.items, profile);
+  const validationItems =
+    profile === "fs42-native" ? state.items.filter((item) => !ITEM_TYPE_META[item.itemType]?.commercial) : state.items;
+
+  validationItems.forEach((item) => {
+    const issues = validateItem(item, validationItems, profile);
     itemIssues.set(item.id, issues);
     issues.forEach((issue) => {
       const payload = { ...issue, itemId: item.id, title: item.title, channelId: item.channelId };
@@ -1936,6 +1941,36 @@ function validateSchedule(profile = state.exportProfile) {
   return {
     profile,
     itemIssues,
+    blockers,
+    warnings,
+    ready: blockers.length === 0,
+  };
+}
+
+function validateFs42NativeExport() {
+  const scheduleValidation = validateSchedule("fs42-native");
+  const nativeErrors = [];
+
+  state.channels.forEach((channel, index) => {
+    const channelNumber = index + 1;
+    const channelItems = state.items.filter((item) => item.channelId === channel.id);
+    const payload = buildFs42NativeExportPayload(channel, channelItems, channelNumber);
+    const issues = validateFs42NativePayload(payload, channel, channelNumber);
+    issues.forEach((issue) => {
+      nativeErrors.push({
+        ...issue,
+        itemId: issue.itemId || channel.id,
+        title: issue.title || channel.name || `Channel ${channelNumber}`,
+        channelId: channel.id,
+      });
+    });
+  });
+
+  const blockers = [...scheduleValidation.blockers, ...nativeErrors];
+  const warnings = scheduleValidation.warnings;
+
+  return {
+    profile: "fs42-native",
     blockers,
     warnings,
     ready: blockers.length === 0,
@@ -3080,15 +3115,15 @@ function exportSchedule(format) {
       return;
     }
 
-    const validation = validateSchedule("fs42-strict");
+    const validation = validateFs42NativeExport();
     if (!validation.ready) {
       renderExportReadiness();
       const message = validation.blockers.slice(0, 4).map(renderIssueLine).join("\n");
-      window.alert(`FS42 strict export is blocked:\n${message}`);
+      window.alert(`FS42 station config export is blocked:\n${message}`);
       return;
     }
 
-    exportChannelJsons("fs42-strict");
+    exportFs42NativeStationConfigs();
     return;
   }
 
@@ -3146,101 +3181,78 @@ function exportInternalSchedulerJson() {
   downloadFile("fs42-scheduler-internal.json", JSON.stringify(payload, null, 2), "application/json");
 }
 
-function exportChannelJsons(profile = "fs42-strict") {
-  const manifests = [];
+function exportFs42NativeStationConfigs() {
   state.channels.forEach((channel, index) => {
     const channelItems = state.items.filter((item) => item.channelId === channel.id);
-    const payload = buildChannelJson(channel, channelItems, index + 1, profile);
-    manifests.push({
-      channel: channel.name,
-      file: `${slugify(channel.name)}.json`,
-      commercial: payload.station_conf.commercial,
-      items: payload.station_conf.programme_count,
-    });
+    const channelNumber = index + 1;
+    const payload = buildFs42NativeExportPayload(channel, channelItems, channelNumber);
+    const baseName = getFs42NativeFileBase(channel, channelNumber);
 
     window.setTimeout(() => {
-      downloadFile(`${slugify(channel.name)}.json`, JSON.stringify(payload, null, 2), "application/json");
+      downloadFile(`${baseName}.json`, JSON.stringify(payload, null, 2), "application/json");
     }, index * 120);
   });
-
-  window.setTimeout(() => {
-    downloadFile("fs42-channel-manifest.json", JSON.stringify(manifests, null, 2), "application/json");
-  }, state.channels.length * 120 + 50);
 }
 
-function buildChannelJson(channel, channelItems, channelNumber, profile = "fs42-strict") {
-  const nonCommercialItems = channelItems
-    .filter((item) => !ITEM_TYPE_META[item.itemType]?.commercial)
-    .sort(compareItems);
-  const commercialItems = channelItems
-    .filter((item) => ITEM_TYPE_META[item.itemType]?.commercial)
-    .sort(compareItems);
-  const daySchedules = buildScheduleByDay(nonCommercialItems);
-  const clipShows = uniqueValues(
-    nonCommercialItems
-      .filter((item) => item.itemType === "Programme")
-      .map((item) => slugify(item.blockGroup || item.title)),
-  );
-
+function buildFs42NativeExportPayload(channel, channelItems, channelNumber) {
   return {
-    station_conf: {
-      network_name: channel.name,
-      channel_number: channelNumber,
-      network_type: "standard",
-      schedule_increment: 30,
-      break_strategy: commercialItems.length > 0 ? "standard" : "none",
-      commercial_free: commercialItems.length === 0,
-      commercial: commercialItems.length > 0,
-      break_duration: commercialItems.length > 0 ? 120 : 0,
-      break_count: commercialItems.length,
-      export_profile: profile,
-      content_dir: `catalog/${slugify(channel.name)}_catalog`,
-      commercial_dir: "commercial",
-      bump_dir: "bump",
-      clip_shows: clipShows,
-      sign_off_video: "runtime/signoff.mp4",
-      off_air_video: "runtime/off_air_pattern.mp4",
-      standby_image: "runtime/standby.png",
-      be_right_back_media: "runtime/brb.png",
-      logo_dir: "logos",
-      show_logo: true,
-      default_logo: `${slugify(channel.name)}.png`,
-      logo_permanent: true,
-      multi_logo: "multi",
-      channel_group: channel.group || "",
-      tagline: channel.tagline || "",
-      programme_count: nonCommercialItems.filter((item) => item.itemType === "Programme").length,
-      commercial_count: commercialItems.length,
-      day_count: uniqueValues(nonCommercialItems.map((item) => item.day)).length,
-      ...daySchedules,
-    },
+    station_conf: buildFs42NativeStationConfig(channel, channelItems, channelNumber),
   };
 }
 
-function buildScheduleByDay(items) {
+function buildFs42NativeStationConfig(channel, channelItems, channelNumber) {
+  const programmeItems = channelItems
+    .filter((item) => !ITEM_TYPE_META[item.itemType]?.commercial)
+    .sort(compareItems);
+  const commercialCount = channelItems.filter((item) => ITEM_TYPE_META[item.itemType]?.commercial).length;
+  const daySchedules = buildFs42NativeDaySchedules(programmeItems);
+  const baseName = getFs42NativeFileBase(channel, channelNumber);
+
+  return {
+    network_name: channel.name,
+    channel_number: channelNumber,
+    network_type: "standard",
+    content_dir: `catalog/${baseName}`,
+    commercial_dir: `commercial/${baseName}`,
+    bump_dir: `bump/${baseName}`,
+    schedule_increment: 30,
+    break_strategy: commercialCount > 0 ? "standard" : "end",
+    commercial_free: commercialCount === 0,
+    sign_off_video: "runtime/signoff.mp4",
+    off_air_video: "runtime/off_air_pattern.mp4",
+    standby_image: "runtime/standby.png",
+    be_right_back_media: "runtime/brb.png",
+    logo_dir: `logos/${baseName}`,
+    show_logo: true,
+    default_logo: `${baseName}.png`,
+    logo_permanent: true,
+    multi_logo: false,
+    ...daySchedules,
+  };
+}
+
+function buildFs42NativeDaySchedules(items) {
   const schedule = {};
   DAY_NAMES.forEach((day) => {
     const dayKey = day.toLowerCase();
     const dayItems = items.filter((item) => item.day === day).sort(compareItems);
     const daySchedule = {};
 
+    const hourGroups = new Map();
     dayItems.forEach((item) => {
-      const hour = String(Math.floor(timeToMinutes(item.start) / 60)).padStart(2, "0");
-      if (!daySchedule[hour]) daySchedule[hour] = [];
-      daySchedule[hour].push({
-        tags: scheduleTagForItem(item),
-        title: item.title,
-        start: item.start,
-        duration: getSafeDuration(item.duration, item.itemType),
-        type: item.itemType,
-        category: item.category,
-        code: item.assetCode || "",
-        watershed_restricted: Boolean(item.watershedRestricted),
-        prime_time: Boolean(item.primeTime),
-        must_run: Boolean(item.mustRun),
-        flags: getFlagList(item).map((flag) => flag.short),
-      });
+      const startMinutes = parseTimeMinutes(item.start);
+      if (!Number.isFinite(startMinutes)) return;
+      const hour = String(Math.floor(startMinutes / 60));
+      if (!hourGroups.has(hour)) hourGroups.set(hour, []);
+      hourGroups.get(hour).push(item);
     });
+
+    Array.from(hourGroups.entries())
+      .sort(([leftHour], [rightHour]) => Number(leftHour) - Number(rightHour))
+      .forEach(([hour, hourItems]) => {
+        const slot = buildFs42NativeHourSlot(hourItems);
+        if (slot) daySchedule[hour] = slot;
+      });
 
     schedule[dayKey] = daySchedule;
   });
@@ -3248,13 +3260,111 @@ function buildScheduleByDay(items) {
   return schedule;
 }
 
-function scheduleTagForItem(item) {
-  if (item.itemType === "Programme") return slugify(item.blockGroup || item.category || item.title);
-  if (item.itemType === "Ad Break") return "commercial-break";
-  if (item.itemType === "Ad Spot") return "commercial-spot";
-  if (item.itemType === "Bumper") return "bump";
-  if (item.itemType === "Promo") return "promo";
-  return slugify(item.itemType);
+function buildFs42NativeHourSlot(hourItems) {
+  const programmeItems = hourItems.filter((item) => !ITEM_TYPE_META[item.itemType]?.commercial);
+  if (programmeItems.length === 0) return null;
+
+  const chosenItem = programmeItems[0];
+  return {
+    tags: buildFs42NativeTags(chosenItem, hourItems),
+    loop: true,
+  };
+}
+
+function buildFs42NativeTags(item, hourItems = []) {
+  const baseTag = slugify(item.blockGroup || item.category || item.title || "programming");
+  const hasWatershed = hourItems.some((entry) => entry.watershedRestricted);
+  return hasWatershed ? `watershed/${baseTag}` : baseTag;
+}
+
+function getFs42NativeFileBase(channel, channelNumber) {
+  return `ch${String(channelNumber).padStart(2, "0")}_${slugify(channel.name || "channel")}`;
+}
+
+function validateFs42NativePayload(payload, channel, channelNumber) {
+  const issues = [];
+  const stationConf = payload?.station_conf;
+  const baseTitle = channel?.name || `Channel ${channelNumber}`;
+  const validNetworkTypes = new Set(["standard", "web", "guide", "loop", "streaming"]);
+  const validBreakStrategies = new Set(["standard", "end", "center"]);
+  const requiredStringFields = ["network_name", "content_dir", "commercial_dir", "bump_dir"];
+  const optionalStringFields = ["sign_off_video", "off_air_video", "standby_image", "be_right_back_media", "logo_dir", "default_logo"];
+
+  if (!stationConf || typeof stationConf !== "object" || Array.isArray(stationConf)) {
+    return [{ title: baseTitle, message: "station_conf is missing or invalid." }];
+  }
+
+  if (!Number.isInteger(stationConf.channel_number) || stationConf.channel_number <= 0) {
+    issues.push({ title: baseTitle, message: "channel_number must be a positive integer." });
+  }
+  if (!validNetworkTypes.has(stationConf.network_type)) {
+    issues.push({ title: baseTitle, message: "network_type must be standard, web, guide, loop, or streaming." });
+  }
+  if (!validBreakStrategies.has(stationConf.break_strategy)) {
+    issues.push({ title: baseTitle, message: "break_strategy must be standard, end, or center." });
+  }
+  if (typeof stationConf.commercial_free !== "boolean") {
+    issues.push({ title: baseTitle, message: "commercial_free must be a boolean." });
+  }
+  if (typeof stationConf.schedule_increment !== "number" || !Number.isInteger(stationConf.schedule_increment) || stationConf.schedule_increment <= 0) {
+    issues.push({ title: baseTitle, message: "schedule_increment must be a positive integer." });
+  }
+
+  requiredStringFields.forEach((field) => {
+    if (typeof stationConf[field] !== "string" || !stationConf[field].trim()) {
+      issues.push({ title: baseTitle, message: `${field} is missing or empty.` });
+    }
+  });
+  optionalStringFields.forEach((field) => {
+    if (field in stationConf && (typeof stationConf[field] !== "string" || !stationConf[field].trim())) {
+      issues.push({ title: baseTitle, message: `${field} must be a non-empty string when provided.` });
+    }
+  });
+  ["show_logo", "logo_permanent", "multi_logo"].forEach((field) => {
+    if (field in stationConf && typeof stationConf[field] !== "boolean") {
+      issues.push({ title: baseTitle, message: `${field} must be boolean when provided.` });
+    }
+  });
+
+  if (stationConf.break_strategy === "none") {
+    issues.push({ title: baseTitle, message: "break_strategy cannot be none." });
+  }
+
+  DAY_NAMES.forEach((day) => {
+    const dayKey = day.toLowerCase();
+    const dayValue = stationConf[dayKey];
+    if (typeof dayValue === "string") return;
+    if (!dayValue || typeof dayValue !== "object" || Array.isArray(dayValue)) {
+      issues.push({ title: baseTitle, message: `${dayKey} must be a day template string or an hour object.` });
+      return;
+    }
+    Object.entries(dayValue).forEach(([hour, slot]) => {
+      if (!/^(?:[0-9]|1[0-9]|2[0-3])$/.test(hour)) {
+        issues.push({ title: baseTitle, message: `${dayKey}.${hour} is not a valid hour key.` });
+      }
+      if (!slot || typeof slot !== "object" || Array.isArray(slot)) {
+        issues.push({ title: baseTitle, message: `${dayKey}.${hour} must be a slot object.` });
+        return;
+      }
+      if (typeof slot.tags !== "string" && !Array.isArray(slot.tags)) {
+        issues.push({ title: baseTitle, message: `${dayKey}.${hour}.tags must be a string or string array.` });
+      }
+      if ("loop" in slot && typeof slot.loop !== "boolean") {
+        issues.push({ title: baseTitle, message: `${dayKey}.${hour}.loop must be boolean if present.` });
+      }
+      if ("sequence" in slot && typeof slot.sequence !== "string") {
+        issues.push({ title: baseTitle, message: `${dayKey}.${hour}.sequence must be a string if present.` });
+      }
+      if ("sequence_start" in slot && !Number.isInteger(slot.sequence_start)) {
+        issues.push({ title: baseTitle, message: `${dayKey}.${hour}.sequence_start must be an integer if present.` });
+      }
+      if ("sequence_end" in slot && !Number.isInteger(slot.sequence_end)) {
+        issues.push({ title: baseTitle, message: `${dayKey}.${hour}.sequence_end must be an integer if present.` });
+      }
+    });
+  });
+
+  return issues;
 }
 
 function downloadFile(filename, content, type) {
@@ -3308,7 +3418,7 @@ function normalizeState(parsed) {
       viewMode: parsed.viewMode || "timeline",
       timelineScale: parsed.timelineScale || "day",
       colorMode: parsed.colorMode || "channel",
-      exportProfile: parsed.exportProfile || "fs42-strict",
+      exportProfile: normalizeExportProfile(parsed.exportProfile),
       selectedDay: parsed.selectedDay || "Monday",
       selectedChannelId: parsed.selectedChannelId || "all",
       channels: parsed.channels.map((channel) => ({
@@ -3329,7 +3439,7 @@ function normalizeState(parsed) {
       viewMode: "timeline",
       timelineScale: "day",
       colorMode: parsed.colorMode || "channel",
-      exportProfile: parsed.exportProfile || "fs42-strict",
+      exportProfile: normalizeExportProfile(parsed.exportProfile),
       selectedDay: parsed.selectedDay || "Monday",
       selectedChannelId: "all",
       channels,

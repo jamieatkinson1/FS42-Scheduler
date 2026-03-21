@@ -267,19 +267,19 @@
               <span id="legendModeLabel">Channel</span>
             </div>
             <div id="legend" class="legend"></div>
-            <label class="field export-profile-field">
-              <span>Export profile</span>
-              <select id="exportProfile">
-                <option value="fs42-strict">FS42 JSON (strict)</option>
-                <option value="internal">Internal scheduler JSON</option>
-              </select>
-            </label>
-            <div id="exportReadiness" class="export-readiness" aria-live="polite"></div>
-            <div class="button-row export-row">
-              <button id="exportCsv" type="button" class="button secondary">Export CSV</button>
-              <button id="exportJson" type="button" class="button secondary">Export Channel JSON</button>
-              <button id="seedButton" type="button" class="button secondary">Restore Demo Data</button>
-            </div>
+              <label class="field export-profile-field">
+                <span>Export profile</span>
+                <select id="exportProfile">
+                  <option value="fs42-native">FS42 station config</option>
+                  <option value="internal">Internal scheduler JSON</option>
+                </select>
+              </label>
+              <div id="exportReadiness" class="export-readiness" aria-live="polite"></div>
+              <div class="button-row export-row">
+                <button id="exportCsv" type="button" class="button secondary">Export CSV</button>
+                <button id="exportJson" type="button" class="button secondary">Export FS42 Native JSON</button>
+                <button id="seedButton" type="button" class="button secondary">Restore Demo Data</button>
+              </div>
           </div>
         </section>
 
