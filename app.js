@@ -237,6 +237,8 @@ function createItem(
     slot: getSlotFromMinutes(timeToMinutes(start)),
     blockGroup,
     assetCode,
+    weekOrder: flags.weekOrder ?? null,
+    monthOrder: flags.monthOrder ?? null,
     planningWeek: flags.planningWeek ?? null,
     ...normalizeFlags(flags),
     notes,
@@ -253,7 +255,7 @@ function createDefaultState() {
     selectedDay: "Monday",
     selectedChannelId: "all",
     channels,
-    items: [
+    items: seedStrategicOrders([
       createItem("FS42 Breakfast Live", "Programme", "Entertainment", channels[0].id, "Monday", "06:00", 180, "High", "Morning studio", "FS42-MAIN-001", {}, "Live breakfast block."),
       createItem("Breakfast Break A", "Ad Break", "Commercials", channels[0].id, "Monday", "07:28", 6, "Medium", "Breakfast ads", "FS42-ADS-101", {}, "Contains 4 spots and bumper."),
       createItem("Coffee Sponsor Bumper", "Bumper", "Continuity", channels[0].id, "Monday", "07:34", 1, "Medium", "Breakfast ads", "FS42-BUMP-007", {}, "Lead back into programme."),
@@ -263,7 +265,7 @@ function createDefaultState() {
       createItem("Prime Time Break", "Ad Break", "Commercials", channels[2].id, "Monday", "18:55", 5, "High", "Prime ads", "FS42-ADS-202", { primeTime: true }, "Mid-match sponsored break."),
       createItem("Late Signal", "Programme", "Drama", channels[3].id, "Monday", "22:00", 90, "Low", "Overnight", "FS42-EXT-003", { watershedRestricted: true }, "Experimental and repeat-friendly slot."),
       createItem("Spotlight UK", "Programme", "Entertainment", channels[0].id, "Tuesday", "20:00", 60, "Critical", "Feature", "FS42-MAIN-010", { primeTime: true, mustRun: true }, "Signature weekly tentpole."),
-    ],
+    ]),
   };
 }
 
@@ -369,6 +371,16 @@ function handleItemSubmit(event) {
     updateItemValidationSummary(item, validation);
     return;
   }
+
+    if (!state.items.some((entry) => entry.id === item.id)) {
+      item.weekOrder = getNextStrategicOrderValue(item, state.items, "week");
+      item.monthOrder = getNextStrategicOrderValue(item, state.items, "month");
+    } else {
+      const existing = state.items.find((entry) => entry.id === item.id);
+      item.weekOrder = Number.isFinite(existing?.weekOrder) ? existing.weekOrder : null;
+      item.monthOrder = Number.isFinite(existing?.monthOrder) ? existing.monthOrder : null;
+      item.planningWeek = Number.isInteger(existing?.planningWeek) ? existing.planningWeek : null;
+    }
 
   const index = state.items.findIndex((entry) => entry.id === item.id);
   if (index >= 0) {
@@ -1037,6 +1049,7 @@ function updateStrategicDragPreviewFromEvent(event) {
   const channelId = cell?.dataset.channelId || strategicDragState.lastTargetChannelId || sourceItem.channelId;
   const category = cell?.dataset.category || strategicDragState.lastTargetCategory || sourceItem.category;
   const columnValue = cell?.dataset.columnValue || strategicDragState.lastTargetColumnValue;
+  const field = getStrategicOrderField(mode);
   const previewItem = { ...sourceItem, channelId, category };
 
   if (mode === "week") {
@@ -1045,6 +1058,8 @@ function updateStrategicDragPreviewFromEvent(event) {
     const bucket = Number(cell?.dataset.columnIndex);
     previewItem.planningWeek = Number.isInteger(bucket) ? bucket + 1 : strategicDragState.originPlanningWeek;
   }
+
+  previewItem[field] = getStrategicCellOrder(cell, event, mode, sourceItem.id, sourceItem);
 
   strategicDragState.previewItem = previewItem;
   strategicDragState.lastTargetCellEl = cell;
@@ -1063,6 +1078,7 @@ function updateStrategicDragPreviewFromEvent(event) {
       targetColumn: strategicDragState.lastTargetColumnValue,
       previewDay: previewItem.day,
       previewPlanningWeek: previewItem.planningWeek ?? "-",
+      previewOrder: previewItem[field],
     });
   }
 
@@ -1085,13 +1101,15 @@ function commitStrategicDrag(event) {
   } else {
     item.planningWeek = Number.isInteger(preview.planningWeek) ? preview.planningWeek : strategicDragState.originPlanningWeek;
   }
+  const orderField = getStrategicOrderField(strategicDragState.mode || state.timelineScale);
+  item[orderField] = Number.isFinite(preview[orderField]) ? preview[orderField] : item[orderField];
 
   if (DEBUG_TIMELINE_DND) {
     console.log("[strategic-dnd] commit", {
       itemId: item.id,
       title: item.title,
       before,
-      after: { day: item.day, planningWeek: item.planningWeek || null, channelId: item.channelId, category: item.category },
+      after: { day: item.day, planningWeek: item.planningWeek || null, channelId: item.channelId, category: item.category, order: item[orderField] },
     });
   }
 
@@ -2012,13 +2030,53 @@ function getLaneCategories(channelId) {
 function getStrategicItems(items, channelId, category, scaleMode, index) {
   const laneItems = items
     .filter((item) => item.channelId === channelId && item.category === category)
-    .sort(compareItems);
+    .sort((a, b) => compareStrategicItems(a, b, scaleMode));
 
   if (scaleMode === "week") {
     return laneItems.filter((item) => DAY_NAMES.indexOf(item.day) === index);
   }
 
   return laneItems.filter((item) => getStrategicMonthBucket(item) === index + 1);
+}
+
+function compareStrategicItems(a, b, mode) {
+  const field = getStrategicOrderField(mode);
+  const orderA = Number.isFinite(a[field]) ? Number(a[field]) : Number.MAX_SAFE_INTEGER;
+  const orderB = Number.isFinite(b[field]) ? Number(b[field]) : Number.MAX_SAFE_INTEGER;
+  if (orderA !== orderB) return orderA - orderB;
+  return compareItems(a, b);
+}
+
+function getStrategicCellOrder(cell, event, mode, draggedItemId, fallbackItem = null) {
+  const draggedSelector = `[data-item-id="${draggedItemId}"]`;
+  const cards = Array.from(cell?.querySelectorAll?.(".mini-card") || []).filter((card) => card.dataset.itemId !== draggedItemId);
+  if (cards.length === 0) {
+    const base = fallbackItem ? Number(fallbackItem[getStrategicOrderField(mode)]) : NaN;
+    return Number.isFinite(base) ? base + 10 : 10;
+  }
+
+  const pointerY = event.clientY;
+  const cardInfo = cards
+    .map((card) => {
+      const item = state.items.find((entry) => entry.id === card.dataset.itemId);
+      const rect = card.getBoundingClientRect();
+      return {
+        item,
+        order: item ? Number(item[getStrategicOrderField(mode)]) : NaN,
+        centerY: rect.top + rect.height / 2,
+      };
+    })
+    .filter((entry) => entry.item && Number.isFinite(entry.order))
+    .sort((left, right) => left.centerY - right.centerY);
+
+  if (cardInfo.length === 0) return 10;
+
+  let insertIndex = cardInfo.findIndex((entry) => pointerY < entry.centerY);
+  if (insertIndex === -1) insertIndex = cardInfo.length;
+
+  if (insertIndex <= 0) return cardInfo[0].order - 10;
+  if (insertIndex >= cardInfo.length) return cardInfo[cardInfo.length - 1].order + 10;
+  return (cardInfo[insertIndex - 1].order + cardInfo[insertIndex].order) / 2;
 }
 
 function computeLaneLayout(items) {
@@ -2123,6 +2181,54 @@ function getSafeDuration(value, itemType = "Programme") {
 
 function normalizeExportProfile(value) {
   return value === "internal" ? "internal" : "fs42-native";
+}
+
+function seedStrategicOrders(items) {
+  const seeded = items.map((item) => ({ ...item }));
+  seedStrategicOrderField(seeded, "weekOrder", (item) => `${item.channelId}|${item.category}|${item.day}`);
+  seedStrategicOrderField(seeded, "monthOrder", (item) => `${item.channelId}|${item.category}|${getStrategicMonthBucket(item)}`);
+  return seeded;
+}
+
+function seedStrategicOrderField(items, field, groupKeyFn) {
+  const groups = new Map();
+  items.forEach((item) => {
+    const key = groupKeyFn(item);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  });
+
+  groups.forEach((groupItems) => {
+    const withOrder = groupItems
+      .filter((item) => Number.isFinite(item[field]))
+      .sort((a, b) => Number(a[field]) - Number(b[field]));
+    const withoutOrder = groupItems.filter((item) => !Number.isFinite(item[field])).sort(compareItems);
+    let nextOrder = withOrder.length > 0 ? Number(withOrder[withOrder.length - 1][field]) + 10 : 10;
+
+    withoutOrder.forEach((item) => {
+      item[field] = nextOrder;
+      nextOrder += 10;
+    });
+  });
+}
+
+function getStrategicOrderField(mode) {
+  return mode === "week" ? "weekOrder" : "monthOrder";
+}
+
+function getStrategicOrderGroupKey(item, mode) {
+  return mode === "week"
+    ? `${item.channelId}|${item.category}|${item.day}`
+    : `${item.channelId}|${item.category}|${getStrategicMonthBucket(item)}`;
+}
+
+function getNextStrategicOrderValue(item, items, mode) {
+  const field = getStrategicOrderField(mode);
+  const groupKey = getStrategicOrderGroupKey(item, mode);
+  const peers = items.filter((entry) => entry.id !== item.id && getStrategicOrderGroupKey(entry, mode) === groupKey);
+  const orders = peers.map((entry) => Number(entry[field])).filter((value) => Number.isFinite(value)).sort((a, b) => a - b);
+  if (orders.length === 0) return 10;
+  return orders[orders.length - 1] + 10;
 }
 
 function clampPlanningMinutes(minutes, fallback = DAY_START) {
@@ -3756,7 +3862,7 @@ function normalizeState(parsed) {
         multiLogoMode: Boolean(channel.multiLogoMode),
         multiLogoProfile: channel.multiLogoProfile || "",
       })),
-      items: normalizeItems(parsed.items || parsed.shows || [], parsed.channels),
+      items: seedStrategicOrders(normalizeItems(parsed.items || parsed.shows || [], parsed.channels)),
     };
   }
 
@@ -3771,7 +3877,7 @@ function normalizeState(parsed) {
       selectedDay: parsed.selectedDay || "Monday",
       selectedChannelId: "all",
       channels,
-      items: parsed.shows.map((show) => ({
+      items: seedStrategicOrders(parsed.shows.map((show) => ({
         id: show.id || crypto.randomUUID(),
         title: show.title || "Untitled item",
         itemType: show.itemType || "Programme",
@@ -3787,9 +3893,11 @@ function normalizeState(parsed) {
         slot: show.slot || getSlotFromMinutes(Number.isFinite(parseTimeMinutes(show.start)) ? parseTimeMinutes(show.start) : timeToMinutes("20:00")),
         blockGroup: show.blockGroup || "",
         assetCode: show.assetCode || "",
+        weekOrder: Number.isFinite(show.weekOrder) ? show.weekOrder : null,
+        monthOrder: Number.isFinite(show.monthOrder) ? show.monthOrder : null,
         planningWeek: Number.isInteger(show.planningWeek) ? show.planningWeek : null,
         notes: show.notes || "",
-      })),
+      }))),
     };
   }
 
@@ -3814,6 +3922,8 @@ function normalizeItems(items, channels) {
     slot: item.slot || getSlotFromMinutes(Number.isFinite(parseTimeMinutes(item.start)) ? parseTimeMinutes(item.start) : timeToMinutes("20:00")),
     blockGroup: item.blockGroup || "",
     assetCode: item.assetCode || "",
+    weekOrder: Number.isFinite(item.weekOrder) ? item.weekOrder : null,
+    monthOrder: Number.isFinite(item.monthOrder) ? item.monthOrder : null,
     planningWeek: Number.isInteger(item.planningWeek) ? item.planningWeek : null,
     notes: item.notes || "",
   }));
