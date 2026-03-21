@@ -1,4 +1,4 @@
-# FS42 Scheduler
+# FS42 Scheduler 📺
 
 FS42 Scheduler is a lightweight, single-user planning utility for building linear channel schedules for FieldStation42 (FS42). It is designed for visual scheduling, operational checks, and export-ready handoff, without the complexity of a full traffic or rights system.
 
