@@ -387,6 +387,7 @@ body[data-workspace="schedule"] .hero-export {
 body[data-workspace="channels"] .controls-panel,
 body[data-workspace="channels"] .form-panel,
 body[data-workspace="channels"] .planner,
+body[data-workspace="channels"] .schedule-lower,
 body[data-workspace="channels"] .lower-grid,
 body[data-workspace="channels"] .help-panel,
 body[data-workspace="channels"] .hero-legend,
@@ -396,6 +397,7 @@ body[data-workspace="channels"] .hero-export {
 
 body[data-workspace="review"] .form-panel,
 body[data-workspace="review"] .channel-panel,
+body[data-workspace="review"] .schedule-lower,
 body[data-workspace="review"] .help-panel,
 body[data-workspace="review"] .hero-export {
   display: none !important;
@@ -409,6 +411,7 @@ body[data-workspace="export"] .controls-panel,
 body[data-workspace="export"] .channel-panel,
 body[data-workspace="export"] .form-panel,
 body[data-workspace="export"] .planner,
+body[data-workspace="export"] .schedule-lower,
 body[data-workspace="export"] .lower-grid,
 body[data-workspace="export"] .help-panel,
 body[data-workspace="export"] .hero-legend {
@@ -419,6 +422,7 @@ body[data-workspace="help"] .controls-panel,
 body[data-workspace="help"] .channel-panel,
 body[data-workspace="help"] .form-panel,
 body[data-workspace="help"] .planner,
+body[data-workspace="help"] .schedule-lower,
 body[data-workspace="help"] .lower-grid,
 body[data-workspace="help"] .hero-legend,
 body[data-workspace="help"] .hero-export {
@@ -791,6 +795,11 @@ textarea {
 .planner-surface,
 .table-view {
   margin-top: 12px;
+}
+
+.schedule-lower {
+  display: grid;
+  gap: 12px;
 }
 
 .selected-item-panel {
