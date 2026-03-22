@@ -25,8 +25,16 @@ body {
   line-height: 1.45;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(61, 96, 183, 0.14), transparent 24%),
-    radial-gradient(circle at top right, rgba(255, 117, 85, 0.07), transparent 18%),
+    radial-gradient(
+      circle at top left,
+      rgba(61, 96, 183, 0.14),
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(255, 117, 85, 0.07),
+      transparent 18%
+    ),
     linear-gradient(145deg, #08101d 0%, #0d1321 48%, #13233c 100%);
 }
 
@@ -55,8 +63,16 @@ body[data-theme="light"] {
   --shadow: 0 8px 18px rgba(18, 32, 51, 0.1);
   color: #122033;
   background:
-    radial-gradient(circle at top left, rgba(92, 135, 214, 0.12), transparent 22%),
-    radial-gradient(circle at top right, rgba(255, 164, 118, 0.08), transparent 18%),
+    radial-gradient(
+      circle at top left,
+      rgba(92, 135, 214, 0.12),
+      transparent 22%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(255, 164, 118, 0.08),
+      transparent 18%
+    ),
     linear-gradient(145deg, #eef3f9 0%, #f6f8fc 48%, #e6edf7 100%);
 }
 
@@ -89,7 +105,11 @@ body[data-theme="light"] .workspace-button {
 }
 
 body[data-theme="light"] .workspace-button.is-active {
-  background: linear-gradient(135deg, rgba(102, 178, 212, 0.16), rgba(231, 129, 84, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(102, 178, 212, 0.16),
+    rgba(231, 129, 84, 0.1)
+  );
   border-color: rgba(102, 178, 212, 0.35);
 }
 
@@ -255,7 +275,10 @@ body[data-workspace="channels"] .app-shell {
   color: var(--text);
   text-align: left;
   cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
 }
 
 .workspace-button strong {
@@ -274,7 +297,11 @@ body[data-workspace="channels"] .app-shell {
 }
 
 .workspace-button.is-active {
-  background: linear-gradient(135deg, rgba(121, 224, 216, 0.14), rgba(255, 146, 92, 0.08));
+  background: linear-gradient(
+    135deg,
+    rgba(121, 224, 216, 0.14),
+    rgba(255, 146, 92, 0.08)
+  );
   border-color: rgba(121, 224, 216, 0.3);
   box-shadow: 0 0 0 1px rgba(121, 224, 216, 0.08);
 }
@@ -299,7 +326,9 @@ body[data-workspace="channels"] .app-shell {
   color: var(--muted);
   font-size: 0.9rem;
   margin-left: auto;
-  transition: transform 160ms ease, color 160ms ease;
+  transition:
+    transform 160ms ease,
+    color 160ms ease;
 }
 
 [data-collapsible] > summary.section-heading,
@@ -435,6 +464,22 @@ body[data-workspace="help"] .hero-export {
   margin-bottom: 12px;
 }
 
+.field-with-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-with-action > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.field-with-action > .button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .controls-panel .field,
 .channel-panel .field,
 .form-panel .field {
@@ -541,7 +586,10 @@ textarea {
   border-radius: 6px;
   padding: 10px 15px;
   cursor: pointer;
-  transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease,
+    background 160ms ease;
 }
 
 .button:hover {
@@ -948,7 +996,10 @@ textarea {
     linear-gradient(90deg, rgba(255, 255, 255, 0.11) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: var(--hour-width) 100%, calc(var(--hour-width) / 2) 100%, calc(var(--hour-width) / 4) 100%;
+  background-size:
+    var(--hour-width) 100%,
+    calc(var(--hour-width) / 2) 100%,
+    calc(var(--hour-width) / 4) 100%;
 }
 
 .hour-cell,
@@ -973,8 +1024,14 @@ textarea {
     linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
     linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size: var(--hour-width) 100%, calc(var(--hour-width) / 2) 100%, calc(var(--hour-width) / 4) 100%, 100% 38px;
-  transition: box-shadow 160ms ease, background-color 160ms ease;
+  background-size:
+    var(--hour-width) 100%,
+    calc(var(--hour-width) / 2) 100%,
+    calc(var(--hour-width) / 4) 100%,
+    100% 38px;
+  transition:
+    box-shadow 160ms ease,
+    background-color 160ms ease;
 }
 
 .day-lane.drop-target {
@@ -1000,7 +1057,23 @@ textarea {
   overflow: hidden;
   cursor: move;
   touch-action: none;
-  transition: transform 120ms ease, opacity 120ms ease;
+  transition:
+    transform 120ms ease,
+    opacity 120ms ease;
+}
+.schedule-lower {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+  margin-top: 16px;
+  min-height: 0;
+}
+
+body[data-workspace="channels"] .schedule-lower,
+body[data-workspace="review"] .schedule-lower,
+body[data-workspace="export"] .schedule-lower,
+body[data-workspace="help"] .schedule-lower {
+  display: none !important;
 }
 
 .schedule-block.dragging {
@@ -1076,7 +1149,9 @@ body.is-pointer-dragging {
 }
 
 .schedule-block.is-active {
-  box-shadow: 0 0 0 2px rgba(121, 224, 216, 0.7), 0 10px 18px rgba(4, 8, 16, 0.24);
+  box-shadow:
+    0 0 0 2px rgba(121, 224, 216, 0.7),
+    0 10px 18px rgba(4, 8, 16, 0.24);
 }
 
 .schedule-block.validation-warning {
@@ -1148,7 +1223,10 @@ body.is-pointer-dragging {
   color: white;
   font-size: 0.8rem;
   box-shadow: 0 9px 16px rgba(0, 0, 0, 0.15);
-  transition: transform 120ms ease, opacity 120ms ease, box-shadow 120ms ease;
+  transition:
+    transform 120ms ease,
+    opacity 120ms ease,
+    box-shadow 120ms ease;
   cursor: grab;
 }
 
@@ -1168,7 +1246,9 @@ body.is-pointer-dragging {
 .mini-card.is-strategic-dragging {
   opacity: 0.55;
   transform: scale(0.98);
-  box-shadow: 0 0 0 2px rgba(121, 224, 216, 0.42), 0 12px 20px rgba(0, 0, 0, 0.18);
+  box-shadow:
+    0 0 0 2px rgba(121, 224, 216, 0.42),
+    0 12px 20px rgba(0, 0, 0, 0.18);
   pointer-events: none;
 }
 
@@ -1369,7 +1449,8 @@ body.is-strategic-dragging {
   background: rgba(8, 13, 24, 0.94);
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
   color: var(--text);
-  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family:
+    "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 11px;
   line-height: 1.35;
   backdrop-filter: blur(8px);

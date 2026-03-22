@@ -106,6 +106,7 @@ const elements = {
   slot: document.getElementById("slot"),
   blockGroup: document.getElementById("blockGroup"),
   assetCode: document.getElementById("assetCode"),
+  regenerateAssetCode: document.getElementById("regenerateAssetCode"),
   notes: document.getElementById("notes"),
   itemValidation: document.getElementById("itemValidation"),
   formTitle: document.getElementById("formTitle"),
@@ -185,6 +186,8 @@ const pointerDragState = {
   active: false,
   itemId: null,
   pointerId: null,
+  startClientX: 0,
+  startClientY: 0,
   originLaneEl: null,
   originChannelId: null,
   originCategory: null,
@@ -520,6 +523,7 @@ function bindEvents() {
   elements.dayFilter.addEventListener("change", handleControlChange);
   elements.channelFilter.addEventListener("change", handleControlChange);
   elements.itemType.addEventListener("change", handleItemTypeChange);
+  elements.title.addEventListener("blur", syncNewItemExportCodeFromTitle);
   const markItemFormDirty = () => {
     itemFormDirty = true;
     updateItemValidationSummary();
@@ -530,6 +534,7 @@ function bindEvents() {
   elements.showForm.addEventListener("submit", handleItemSubmit);
   elements.resetForm.addEventListener("click", resetItemForm);
   elements.duplicateItem.addEventListener("click", () => duplicateActiveItem());
+  elements.regenerateAssetCode?.addEventListener("click", regenerateActiveItemExportCode);
   elements.channelForm.addEventListener("submit", handleChannelSubmit);
   elements.resetChannelForm.addEventListener("click", resetChannelForm);
   elements.commercialFree.addEventListener("change", syncChannelCommercialFreeControls);
@@ -613,11 +618,24 @@ function handleItemTypeChange() {
   }
 }
 
+function syncNewItemExportCodeFromTitle() {
+  if (elements.showId.value) return;
+  const title = elements.title.value.trim();
+  if (!title || elements.assetCode.value.trim()) return;
+  elements.assetCode.value = getUniqueExportCode(generateDefaultExportCode(title), state.items);
+  updateItemValidationSummary();
+}
+
 function handleItemSubmit(event) {
   event.preventDefault();
+  const itemId = elements.showId.value || crypto.randomUUID();
+  const title = elements.title.value.trim();
+  const generatedAssetCode = generateDefaultExportCode(title);
+  const manualAssetCode = elements.assetCode.value.trim();
+  const assetCode = manualAssetCode || getUniqueExportCode(generatedAssetCode, state.items, itemId);
   const item = {
-    id: elements.showId.value || crypto.randomUUID(),
-    title: elements.title.value.trim(),
+    id: itemId,
+    title,
     itemType: elements.itemType.value,
     category: elements.category.value,
     channelId: elements.channel.value,
@@ -630,7 +648,7 @@ function handleItemSubmit(event) {
     mustRun: elements.mustRun.checked,
     slot: elements.slot.value,
     blockGroup: elements.blockGroup.value.trim(),
-    assetCode: elements.assetCode.value.trim(),
+    assetCode,
     notes: elements.notes.value.trim(),
   };
 
@@ -1185,6 +1203,8 @@ function handleBlockPointerDown(event) {
   pointerDragState.active = true;
   pointerDragState.itemId = item.id;
   pointerDragState.pointerId = event.pointerId ?? null;
+  pointerDragState.startClientX = event.clientX;
+  pointerDragState.startClientY = event.clientY;
   pointerDragState.originLaneEl = originLane;
   pointerDragState.originChannelId = item.channelId;
   pointerDragState.originCategory = item.category;
@@ -1294,7 +1314,20 @@ function handleBlockPointerUp(event) {
   if (!pointerDragState.active) return;
   if (pointerDragState.pointerId !== null && event.pointerId !== pointerDragState.pointerId) return;
 
+  const movedX = Math.abs(event.clientX - pointerDragState.startClientX);
+  const movedY = Math.abs(event.clientY - pointerDragState.startClientY);
+  const clickThreshold = 6;
+
   event.preventDefault();
+
+  // Treat a near-stationary pointer interaction as a click/select, not a drag.
+  if (movedX < clickThreshold && movedY < clickThreshold) {
+    const selectedItemId = pointerDragState.itemId;
+    clearPointerDragState();
+    hydrateItemForm(selectedItemId);
+    return;
+  }
+
   updatePointerDragPreviewFromEvent(event, "up");
   commitPointerDrag(event);
 }
@@ -1967,6 +2000,8 @@ function clearPointerDragState() {
   pointerDragState.active = false;
   pointerDragState.itemId = null;
   pointerDragState.pointerId = null;
+  pointerDragState.startClientX = 0;
+  pointerDragState.startClientY = 0;
   pointerDragState.originLaneEl = null;
   pointerDragState.originChannelId = null;
   pointerDragState.originCategory = null;
@@ -2305,12 +2340,15 @@ function duplicateItem(itemId) {
   const sourceStart = getSafeStartMinutes(source.start);
   const sourceDuration = getSafeDuration(source.duration, source.itemType);
   const startMinutes = Math.min(sourceStart + 30, DAY_END - sourceDuration);
+  const duplicateTitle = source.title.endsWith(" Copy") ? `${source.title} 2` : `${source.title} Copy`;
+  const duplicateAssetCode = getUniqueExportCode(generateDefaultExportCode(duplicateTitle), state.items);
   const duplicate = {
     ...structuredClone(source),
     id: crypto.randomUUID(),
-    title: source.title.endsWith(" Copy") ? `${source.title} 2` : `${source.title} Copy`,
+    title: duplicateTitle,
     duration: sourceDuration,
     start: minutesToTime(Math.max(DAY_START, startMinutes)),
+    assetCode: duplicateAssetCode,
   };
   state.items.push(duplicate);
   hydrateItemForm(duplicate.id);
@@ -2373,6 +2411,21 @@ function hydrateItemForm(itemId) {
   elements.formHint.textContent = `Updating ${item.title}`;
   updateItemValidationSummary(item);
   render();
+}
+
+function regenerateActiveItemExportCode() {
+  const title = elements.title.value.trim();
+  const generated = generateDefaultExportCode(title);
+  if (!generated) {
+    elements.assetCode.value = "";
+    itemFormDirty = true;
+    updateItemValidationSummary();
+    return;
+  }
+
+  elements.assetCode.value = getUniqueExportCode(generated, state.items, elements.showId.value || null);
+  itemFormDirty = true;
+  updateItemValidationSummary();
 }
 
 function hydrateChannelForm(channelId) {
@@ -4568,6 +4621,39 @@ function normalizeWorkspace(workspace) {
 
 function normalizeTheme(theme) {
   return theme === "light" ? "light" : "dark";
+}
+
+function generateDefaultExportCode(title) {
+  const normalized = String(title || "")
+    .trim()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized;
+}
+
+function getUniqueExportCode(baseCode, items, currentItemId = null) {
+  const normalizedBase = String(baseCode || "").trim();
+  if (!normalizedBase) return "";
+
+  const usedCodes = new Set(
+    (items || [])
+      .filter((item) => item.id !== currentItemId)
+      .map((item) => String(item.assetCode || "").trim().toUpperCase())
+      .filter(Boolean),
+  );
+
+  let candidate = normalizedBase;
+  let suffix = 2;
+  while (usedCodes.has(candidate.toUpperCase())) {
+    candidate = `${normalizedBase}-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
 }
 
 function normalizeItems(items, channels) {

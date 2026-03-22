@@ -449,8 +449,11 @@
 
               <label class="field" title="Export code is the stable machine-friendly identifier used by FS42 ingest and re-import.">
                 <span>Export code</span>
-                <input id="assetCode" name="assetCode" type="text" placeholder="FS42-MAIN-001" />
-                <small class="field-help">Use a stable, unique code like <code>FS42-MAIN-001</code> for anything that must survive ingest.</small>
+                <div class="field-with-action">
+                  <input id="assetCode" name="assetCode" type="text" placeholder="FS42-MAIN-001" />
+                  <button type="button" id="regenerateAssetCode" class="button tertiary">Regenerate</button>
+                </div>
+                <small class="field-help">Leave this blank to auto-generate from the title on save, or use <code>Regenerate</code> to rebuild it intentionally.</small>
               </label>
             </div>
 
