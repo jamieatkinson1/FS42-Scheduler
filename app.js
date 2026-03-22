@@ -146,6 +146,7 @@ const elements = {
   exportReadiness: document.getElementById("exportReadiness"),
   timelineHeading: document.getElementById("timelineHeading"),
   timelineSubheading: document.getElementById("timelineSubheading"),
+  selectedItemPanel: document.getElementById("selectedItemPanel"),
   timelineShell: document.getElementById("timelineShell"),
   timelineView: document.getElementById("timelineView"),
   tableView: document.getElementById("tableView"),
@@ -755,6 +756,7 @@ function render() {
   refreshChannelSelects();
   renderLegend();
   renderPlanner();
+  renderSelectedItemPanel();
   renderTable();
   renderShowList();
   renderChannelList();
@@ -862,6 +864,56 @@ function renderPlanner() {
   } else {
     renderStrategicBoard(state.timelineScale);
   }
+}
+
+function renderSelectedItemPanel() {
+  if (!elements.selectedItemPanel) return;
+
+  const isSchedule = normalizeWorkspace(state.workspace) === "schedule";
+  const item = isSchedule ? state.items.find((entry) => entry.id === elements.showId.value) || null : null;
+  elements.selectedItemPanel.classList.toggle("is-hidden", !item);
+  if (!item) {
+    elements.selectedItemPanel.innerHTML = "";
+    return;
+  }
+
+  const channel = state.channels.find((entry) => entry.id === item.channelId) || null;
+  const issues = validateItem(item, state.items, state.exportProfile);
+  const status = issues.length ? `<span class="status-pill ${getStatusClass(issues)}">${getStatusLabel(issues)}</span>` : "";
+  const flags = getFlagList(item)
+    .map((flag) => `<span class="flag-pill">${flag.label}</span>`)
+    .join("");
+  elements.selectedItemPanel.innerHTML = `
+    <div class="selected-item-header">
+      <div>
+        <p class="selected-item-eyebrow">Selected item</p>
+        <h4>${item.title}</h4>
+        <p>${channel?.name || "Unknown channel"} | ${item.day} | ${item.category}</p>
+      </div>
+      <div class="selected-item-actions">
+        ${status}
+        <span class="flag-pill">${item.itemType}</span>
+      </div>
+    </div>
+    <div class="selected-item-meta">
+      <span><strong>Start:</strong> ${item.start}</span>
+      <span><strong>Duration:</strong> ${item.duration} mins</span>
+      <span><strong>Channel:</strong> ${channel?.name || "-"}</span>
+      <span><strong>Day:</strong> ${item.day}</span>
+      <span><strong>Category:</strong> ${item.category}</span>
+    </div>
+    <div class="selected-item-flags">${flags || "<span class=\"field-help\">No flags set.</span>"}</div>
+    <div class="button-row selected-item-buttons">
+      <button type="button" class="button tertiary edit-button">Edit</button>
+      <button type="button" class="button tertiary duplicate-button">Duplicate</button>
+      <button type="button" class="button tertiary danger delete-button">Delete</button>
+    </div>
+  `;
+  elements.selectedItemPanel.querySelector(".edit-button")?.addEventListener("click", () => hydrateItemForm(item.id));
+  elements.selectedItemPanel
+    .querySelector(".duplicate-button")
+    ?.addEventListener("click", () => duplicateItem(item.id));
+  elements.selectedItemPanel.querySelector(".delete-button")?.addEventListener("click", () => deleteItem(item.id));
 }
 
 function renderDayTimeline() {
