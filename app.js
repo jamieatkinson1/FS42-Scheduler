@@ -1118,11 +1118,13 @@ function createDayBlock(item, level, hasConflict, issues = []) {
   const startMinutes = clampPlanningMinutes(getSafeStartMinutes(item.start));
   const duration = getSafeDuration(item.duration, item.itemType);
   const left = timelineMinutesToX(startMinutes);
-  const width = Math.max((duration / 60) * HOUR_WIDTH, ITEM_TYPE_META[item.itemType]?.commercial ? 42 : 48);
+  const naturalWidth = (duration / 60) * HOUR_WIDTH;
+  const width = Math.max(naturalWidth, duration <= 30 ? 24 : ITEM_TYPE_META[item.itemType]?.commercial ? 42 : 48);
   block.className = "schedule-block";
   block.dataset.itemId = item.id;
   block.dataset.channelId = item.channelId;
   block.dataset.category = item.category;
+  block.title = `${item.title} | ${minutesToTime(startMinutes)} | ${duration} mins`;
   if (elements.showId.value === item.id) block.classList.add("is-active");
   if (pointerDragState.active && pointerDragState.itemId === item.id) block.classList.add("is-pointer-dragging");
   block.style.left = `${left}px`;
