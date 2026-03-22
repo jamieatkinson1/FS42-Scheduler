@@ -2297,6 +2297,7 @@ function hydrateItemForm(itemId) {
   const item = state.items.find((entry) => entry.id === itemId);
   if (!item) return;
   itemFormDirty = false;
+  state.workspace = "schedule";
 
   elements.showId.value = item.id;
   elements.title.value = item.title;
