@@ -4,13 +4,15 @@ FS42 Scheduler is a lightweight, single-user planning utility for building linea
 
 ## &#x1F464; Who It Is For
 
-- Individual channel schedulers and programmers
-- FS42 users who want a local planning board
-- Small operations teams that need a simple, single-user workflow
+- FS42 users who want a visual planning board
+- users that aren't comfortable with json, or who have lots of media to organise
+
+<img width="1442" height="564" alt="image" src="https://github.com/user-attachments/assets/d82c1a4c-2ea5-4411-83bf-92143b326098" />
+
 
 ## &#x1F3AF; What It Solves
 
-- Plans channels in a visual timeline instead of a spreadsheet
+- Plans channels in a visual timeline instead of in JSON files
 - Keeps programmes, commercial items, bumpers, promos, and continuity material organised
 - Surfaces conflicts and export issues before handoff
 - Produces FS42-oriented per-channel JSON exports
@@ -21,7 +23,7 @@ FS42 Scheduler is a lightweight, single-user planning utility for building linea
 - Channel management with groups, colours, and taglines
 - Lane and category planning for clearer operational layout
 - Operational flags: watershed restricted, prime time, and must-run
-- Validation and export-readiness feedback
+- Validation and export-readiness feedback - warnings are flagged per block and explained
 - Table view for review and audit work
 - Export profiles for `Internal scheduler JSON` and `FS42 station config`
 - CSV export for spreadsheet review
