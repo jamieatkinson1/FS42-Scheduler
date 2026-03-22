@@ -1,0 +1,80 @@
+{
+  "station_conf": {
+    "network_name": "FS42 Stories",
+    "channel_number": 2,
+    "network_type": "standard",
+    "content_dir": "catalog/ch01_fs42_stories",
+    "commercial_dir": "commercial/ch01_fs42_stories",
+    "bump_dir": "bump/ch01_fs42_stories",
+    "schedule_increment": 30,
+    "break_strategy": "standard",
+    "commercial_free": false,
+    "break_duration": 120,
+    "sign_off_video": "runtime/signoff.mp4",
+    "off_air_video": "runtime/off_air_pattern.mp4",
+    "standby_image": "runtime/standby.png",
+    "be_right_back_media": "runtime/brb.png",
+    "logo_dir": "logos/ch01_fs42_stories",
+    "show_logo": true,
+    "default_logo": "ch01_fs42_stories.png",
+    "logo_permanent": true,
+    "multi_logo": "",
+    "clip_shows": [],
+    "monday": {
+      "6": {
+        "tags": "morning_studio",
+        "loop": true
+      },
+      "9": {
+        "tags": "mid_morning_cycle",
+        "loop": true
+      },
+      "10": {
+        "tags": "mid_morning_cycle",
+        "loop": true
+      },
+      "11": {
+        "tags": "mid_morning_cycle",
+        "loop": true
+      },
+      "12": {
+        "tags": "lunchtime",
+        "loop": true
+      },
+      "14": {
+        "tags": "mid_morning_cycle",
+        "loop": true
+      },
+      "15": {
+        "tags": "mid_morning_cycle",
+        "loop": true
+      },
+      "16": {
+        "tags": "mid_morning_cycle",
+        "loop": true
+      },
+      "17": {
+        "tags": "mid_morning_cycle",
+        "loop": true
+      },
+      "18": {
+        "tags": "evening_magazine",
+        "loop": true
+      },
+      "20": {
+        "tags": "sport",
+        "loop": true
+      },
+      "22": {
+        "tags": "movies",
+        "loop": true
+      }
+    },
+    "tuesday": {},
+    "wednesday": {},
+    "thursday": {},
+    "friday": {},
+    "saturday": {},
+    "sunday": {}
+  }
+}
