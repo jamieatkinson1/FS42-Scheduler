@@ -287,7 +287,7 @@ function createChannel(nameOrConfig, group, color, tagline, multiLogoMode = fals
     scheduleIncrement: parsePositiveInteger(config.scheduleIncrement) || 30,
     breakStrategy: BREAK_STRATEGIES.includes(config.breakStrategy) ? config.breakStrategy : "standard",
     commercialFree: typeof config.commercialFree === "boolean" ? config.commercialFree : false,
-    breakDuration: parsePositiveInteger(config.breakDuration) ?? 0,
+    breakDuration: parsePositiveInteger(config.breakDuration) || 120,
     contentDir: String(config.contentDir || "").trim() || `catalog/${pathBase}`,
     commercialDir: String(config.commercialDir || "").trim() || `commercial/${pathBase}`,
     bumpDir: String(config.bumpDir || "").trim() || `bump/${pathBase}`,
@@ -402,7 +402,7 @@ function normalizeChannel(channel = {}, index = 0) {
         : typeof channel.commercial_free === "boolean"
           ? channel.commercial_free
           : false,
-    breakDuration: parsePositiveInteger(channel.breakDuration ?? channel.break_duration) ?? 0,
+    breakDuration: parsePositiveInteger(channel.breakDuration ?? channel.break_duration) || 120,
     contentDir: String(channel.contentDir || channel.content_dir || "").trim() || `catalog/${pathBase}`,
     commercialDir: String(channel.commercialDir || channel.commercial_dir || "").trim() || `commercial/${pathBase}`,
     bumpDir: String(channel.bumpDir || channel.bump_dir || "").trim() || `bump/${pathBase}`,
@@ -530,6 +530,7 @@ function bindEvents() {
   elements.duplicateItem.addEventListener("click", () => duplicateActiveItem());
   elements.channelForm.addEventListener("submit", handleChannelSubmit);
   elements.resetChannelForm.addEventListener("click", resetChannelForm);
+  elements.commercialFree.addEventListener("change", syncChannelCommercialFreeControls);
   elements.channelMultiLogoMode.addEventListener("change", syncChannelMultiLogoControls);
   elements.seedButton.addEventListener("click", () => {
     state = createDefaultState();
@@ -731,6 +732,17 @@ function syncChannelMultiLogoControls() {
   const enabled = Boolean(elements.channelMultiLogoMode.checked);
   if (elements.channelMultiLogoPanel) elements.channelMultiLogoPanel.hidden = !enabled;
   if (elements.channelMultiLogoProfile) elements.channelMultiLogoProfile.disabled = !enabled;
+}
+
+function syncChannelCommercialFreeControls() {
+  const locked = Boolean(elements.commercialFree.checked);
+  if (elements.breakStrategy) elements.breakStrategy.disabled = locked;
+  if (elements.breakDuration) {
+    elements.breakDuration.disabled = locked;
+    if (parsePositiveInteger(elements.breakDuration.value) === null || parsePositiveInteger(elements.breakDuration.value) <= 0) {
+      elements.breakDuration.value = "120";
+    }
+  }
 }
 
 function render() {
@@ -2041,7 +2053,7 @@ function renderChannelList() {
       `#${String(parsePositiveInteger(channel.channelNumber) || 1).padStart(2, "0")}`,
       channel.networkType || "standard",
       `inc ${parsePositiveInteger(channel.scheduleIncrement) || 30}m`,
-      `break ${channel.breakStrategy || "standard"} / ${parsePositiveInteger(channel.breakDuration) || 0}m`,
+      `break ${channel.breakStrategy || "standard"} / ${parsePositiveInteger(channel.breakDuration) || 120}s`,
       channel.commercialFree ? "commercial-free" : "commercials on",
       channel.showLogo ? "logo on" : "logo off",
       channel.multiLogoMode ? `multi-logo ${channel.multiLogoProfile || "profile required"}` : "multi-logo off",
@@ -2327,7 +2339,7 @@ function buildDefaultChannelDraft() {
     scheduleIncrement: 30,
     breakStrategy: "standard",
     commercialFree: false,
-    breakDuration: 0,
+    breakDuration: 120,
     contentDir: `catalog/${base}`,
     commercialDir: `commercial/${base}`,
     bumpDir: `bump/${base}`,
@@ -2357,7 +2369,7 @@ function applyChannelFormState(channel, preserveBlankName = false) {
   elements.scheduleIncrement.value = String(normalized.scheduleIncrement || 30);
   elements.breakStrategy.value = normalized.breakStrategy || "standard";
   elements.commercialFree.checked = Boolean(normalized.commercialFree);
-  elements.breakDuration.value = String(normalized.breakDuration ?? 0);
+  elements.breakDuration.value = String(normalized.breakDuration || 120);
   elements.contentDir.value = normalized.contentDir || "";
   elements.commercialDir.value = normalized.commercialDir || "";
   elements.bumpDir.value = normalized.bumpDir || "";
@@ -2372,6 +2384,8 @@ function applyChannelFormState(channel, preserveBlankName = false) {
   elements.logoPermanent.checked = Boolean(normalized.logoPermanent);
   elements.channelMultiLogoMode.checked = Boolean(normalized.multiLogoMode);
   elements.channelMultiLogoProfile.value = normalized.multiLogoProfile || "";
+  syncChannelCommercialFreeControls();
+  syncChannelMultiLogoControls();
 }
 
 function collectChannelFormState() {
@@ -2388,7 +2402,7 @@ function collectChannelFormState() {
     scheduleIncrement: parsePositiveInteger(elements.scheduleIncrement.value),
     breakStrategy: elements.breakStrategy.value,
     commercialFree: Boolean(elements.commercialFree.checked),
-    breakDuration: parsePositiveInteger(elements.breakDuration.value) ?? 0,
+    breakDuration: parsePositiveInteger(elements.breakDuration.value) || 120,
     contentDir: elements.contentDir.value.trim(),
     commercialDir: elements.commercialDir.value.trim(),
     bumpDir: elements.bumpDir.value.trim(),
@@ -2867,11 +2881,11 @@ function validateChannelConfig(channel, scheduleItems = state.items, profile = s
     });
   }
 
-  if (!Number.isInteger(breakDuration) || breakDuration < 0) {
+  if (!Number.isInteger(breakDuration) || breakDuration <= 0) {
     issues.push({
       severity: "blocker",
       code: "break-duration",
-      message: "Break duration must be zero or a positive whole number.",
+      message: "Break duration must be a positive whole number.",
     });
   }
 
@@ -2888,14 +2902,6 @@ function validateChannelConfig(channel, scheduleItems = state.items, profile = s
       severity: "warning",
       code: "commercial-free-mismatch",
       message: "Commercial items exist on this channel, but commercial_free is set to yes.",
-    });
-  }
-
-  if (commercialCount > 0 && breakDuration === 0) {
-    issues.push({
-      severity: "warning",
-      code: "break-duration-empty",
-      message: "Commercial items exist, but break_duration is still 0.",
     });
   }
 
@@ -4229,7 +4235,7 @@ function resolveFs42NativeChannelConfig(channel, baseName) {
     scheduleIncrement: parsePositiveInteger(channel.scheduleIncrement) || 30,
     breakStrategy: BREAK_STRATEGIES.includes(channel.breakStrategy) ? channel.breakStrategy : "standard",
     commercialFree: typeof channel.commercialFree === "boolean" ? channel.commercialFree : false,
-    breakDuration: parsePositiveInteger(channel.breakDuration) ?? 0,
+    breakDuration: parsePositiveInteger(channel.breakDuration) || 120,
     signOffVideo: String(channel.signOffVideo || "").trim() || "runtime/signoff.mp4",
     offAirVideo: String(channel.offAirVideo || "").trim() || "runtime/off_air_pattern.mp4",
     standbyImage: String(channel.standbyImage || "").trim() || "runtime/standby.png",
@@ -4321,8 +4327,8 @@ function validateFs42NativePayload(payload, channel, channelNumber) {
   if (typeof stationConf.schedule_increment !== "number" || !Number.isInteger(stationConf.schedule_increment) || stationConf.schedule_increment <= 0) {
     issues.push({ title: baseTitle, message: "schedule_increment must be a positive integer." });
   }
-  if (!Number.isInteger(stationConf.break_duration) || stationConf.break_duration < 0) {
-    issues.push({ title: baseTitle, message: "break_duration must be zero or a positive integer." });
+  if (!Number.isInteger(stationConf.break_duration) || stationConf.break_duration <= 0) {
+    issues.push({ title: baseTitle, message: "break_duration must be a positive integer." });
   }
 
   requiredStringFields.forEach((field) => {

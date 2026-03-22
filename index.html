@@ -191,8 +191,8 @@
                 </label>
 
                 <label class="field">
-                  <span>Break duration (mins)</span>
-                  <input id="breakDuration" name="breakDuration" type="number" min="0" step="5" placeholder="0" />
+                  <span>Break duration (secs)</span>
+                  <input id="breakDuration" name="breakDuration" type="number" min="1" step="1" placeholder="120" />
                 </label>
               </div>
 
@@ -200,7 +200,7 @@
                 <input id="commercialFree" name="commercialFree" type="checkbox" />
                 <span>Commercial free</span>
               </label>
-              <small class="field-help">If enabled, the exporter will keep the channel marked as commercial-free unless you change it.</small>
+              <small class="field-help">FS42 still expects a positive break duration. When commercial free is on, the break controls are locked and the saved value stays at 120 seconds.</small>
               </div>
             </details>
 
