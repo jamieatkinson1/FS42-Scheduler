@@ -156,6 +156,7 @@ const elements = {
   statRuntime: document.getElementById("statRuntime"),
   statPrime: document.getElementById("statPrime"),
   seedButton: document.getElementById("seedButton"),
+  seedButtonSchedule: document.getElementById("seedButtonSchedule"),
   exportCsv: document.getElementById("exportCsv"),
   exportJson: document.getElementById("exportJson"),
   collapsiblePanels: Array.from(document.querySelectorAll("[data-collapsible]")),
@@ -532,13 +533,15 @@ function bindEvents() {
   elements.resetChannelForm.addEventListener("click", resetChannelForm);
   elements.commercialFree.addEventListener("change", syncChannelCommercialFreeControls);
   elements.channelMultiLogoMode.addEventListener("change", syncChannelMultiLogoControls);
-  elements.seedButton.addEventListener("click", () => {
+  const restoreDemoData = () => {
     state = createDefaultState();
     syncControls();
     resetItemForm();
     resetChannelForm();
     persistAndRender();
-  });
+  };
+  elements.seedButton?.addEventListener("click", restoreDemoData);
+  elements.seedButtonSchedule?.addEventListener("click", restoreDemoData);
   elements.exportCsv.addEventListener("click", () => exportSchedule("csv"));
   elements.exportJson.addEventListener("click", () => exportSchedule("json"));
   elements.themeMode?.addEventListener("change", handleThemeChange);
